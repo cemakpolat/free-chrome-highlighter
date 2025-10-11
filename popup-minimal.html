@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Web Highlighter</title>
+  <link rel="stylesheet" href="popup-minimal.css">
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <div class="header-content">
+        <div class="header-text">
+          <h1>🎯 Web Highlighter</h1>
+          <p>Highlight, organize, and sync</p>
+        </div>
+        <div class="header-actions">
+          <button class="icon-btn" id="header-manage-all" title="Manage All Highlights">
+            📚
+          </button>
+          <button class="icon-btn" id="header-reader-view" title="Reader View">
+            📖
+          </button>
+          <button class="icon-btn" id="header-video-transcript" title="Video Transcript">
+            🎬
+          </button>
+          <button class="icon-btn" id="header-pdf-reader" title="PDF Reader">
+            📝
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <nav class="tabs">
+      <button class="tab active" data-tab="highlights">Highlights</button>
+      <button class="tab" data-tab="manage">Manage</button>
+      <button class="tab" data-tab="settings">Settings</button>
+    </nav>
+
+    <div class="content">
+      <!-- Highlights Tab -->
+      <div id="highlights" class="tab-content active">
+        <div class="highlights-filter">
+          <button class="filter-toggle active" data-filter="current">This Page</button>
+          <button class="filter-toggle" data-filter="all">All Pages</button>
+        </div>
+        <div id="highlights-list" class="highlights-container">
+          <div class="loading">📝 Loading highlights...</div>
+        </div>
+      </div>
+
+      <!-- Manage Tab -->
+      <div id="manage" class="tab-content">
+        <button id="manage-all" class="action-button primary">
+          📚 Manage All Highlights
+        </button>
+        <button id="reader-view-btn" class="action-button">
+          📖 Reader View
+        </button>
+        <button id="video-annotation-btn" class="action-button">
+          🎬 Video Transcript
+        </button>
+        <button id="pdf-reader-btn" class="action-button">
+          📝 PDF Reader
+        </button>
+        <button id="sync-now" class="action-button">
+          🔄 Sync Now
+        </button>
+        <button id="connect-drive" class="action-button">
+          🔗 Connect Google Drive
+        </button>
+      </div>
+
+      <!-- Settings Tab -->
+      <div id="settings" class="tab-content">
+        <button id="open-settings" class="action-button">
+          ⚙️ Extension Settings
+        </button>
+        <button id="help" class="action-button">
+          ❓ Help & Support
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="popup-minimal.js"></script>
+</body>
+</html>

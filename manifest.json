@@ -1,0 +1,83 @@
+{
+  "manifest_version": 3,
+  "name": "Universal Web Highlighter",
+  "version": "1.0.0",
+  "description": "Free web highlighter with Google Drive sync - highlight, save, and access your research from anywhere",
+  
+  "permissions": [
+    "storage",
+    "activeTab",
+    "identity",
+    "scripting",
+    "contextMenus",
+    "alarms",
+    "downloads",
+    "webNavigation",
+    "tabs"
+  ],
+  
+  "host_permissions": [
+    "https://www.googleapis.com/*",
+    "https://www.youtube.com/*"
+  ],
+  
+  "background": {
+    "service_worker": "background.js"
+  },
+  
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": [
+        "interfaces.js",
+        "storage-providers.js",
+        "tts-service.js",
+        "highlighter-service.js",
+        "reader-view.js",
+        "video-annotation.js",
+        "content-script.js"
+      ],
+      "css": ["highlight-styles.css"],
+      "run_at": "document_idle",
+      "all_frames": true,
+      "match_about_blank": true
+    }
+  ],
+  
+  "action": {
+    "default_popup": "popup-minimal.html",
+    "default_title": "Universal Web Highlighter"
+  },
+
+  "options_page": "highlights-manager.html",
+  
+  "icons": {
+    "16": "icons/icon-16.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "highlight-styles.css",
+        "youtube-reader.html",
+        "youtube-reader.js",
+        "pdf-reader.html",
+        "pdf-reader.js",
+        "lib/pdf.min.js",
+        "lib/pdf.worker.min.js"
+      ],
+      "matches": ["<all_urls>"]
+    }
+  ],
+
+  "oauth2": {
+    "client_id": "886377501929-dm8o4t40sh086dp3rm3ibcahtushjqrs.apps.googleusercontent.com",
+    "scopes": ["https://www.googleapis.com/auth/drive.file"]
+  },
+
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; style-src 'self' 'unsafe-inline'"
+  }
+}

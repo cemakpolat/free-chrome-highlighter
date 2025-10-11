@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>YouTube Video Reader</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      color: #e2e8f0;
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    body.light-theme {
+      background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+      color: #1e293b;
+    }
+
+    #video-reader-container {
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .vr-toolbar {
+      background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      padding: 16px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+      z-index: 100;
+      position: relative;
+    }
+
+    .vr-toolbar::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+    }
+
+    .light-theme .vr-toolbar {
+      background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+      box-shadow: 0 2px 12px rgba(79, 70, 229, 0.2);
+    }
+
+    .vr-toolbar-left,
+    .vr-toolbar-right {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .vr-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: white;
+      margin-left: 12px;
+      letter-spacing: -0.02em;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+
+    .vr-btn {
+      padding: 10px 20px;
+      background: rgba(255, 255, 255, 0.15);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      color: white;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .vr-btn:hover {
+      background: rgba(255, 255, 255, 0.25);
+      border-color: rgba(255, 255, 255, 0.4);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+
+    .vr-btn:active {
+      transform: translateY(0);
+    }
+
+    .vr-exit {
+      background: rgba(239, 68, 68, 0.9);
+      border-color: rgba(239, 68, 68, 1);
+      color: white;
+    }
+
+    .vr-exit:hover {
+      background: rgba(220, 38, 38, 1);
+      border-color: rgba(220, 38, 38, 1);
+    }
+
+    .vr-main-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      overflow-x: hidden;
+      background: #0f172a;
+    }
+
+    .light-theme .vr-main-content {
+      background: #f8fafc;
+    }
+
+    .vr-video-section {
+      flex-shrink: 0;
+      background: #000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 32px;
+      width: 100%;
+    }
+
+    .vr-video-container {
+      max-width: 1400px;
+      width: 100%;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+    }
+
+    .vr-video-container iframe {
+      width: 100%;
+      aspect-ratio: 16/9;
+      border: none;
+      display: block;
+    }
+
+    .vr-transcript-section {
+      flex: 1;
+      background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      flex-direction: column;
+      box-shadow: inset 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+
+    .light-theme .vr-transcript-section {
+      background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+      border-top: 1px solid rgba(79, 70, 229, 0.2);
+      box-shadow: inset 0 2px 8px rgba(79, 70, 229, 0.05);
+    }
+
+    .vr-search-panel {
+      background: rgba(30, 41, 59, 0.8);
+      backdrop-filter: blur(12px);
+      padding: 18px 24px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-shrink: 0;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    .light-theme .vr-search-panel {
+      background: rgba(255, 255, 255, 0.95);
+      border-bottom: 1px solid rgba(79, 70, 229, 0.15);
+      box-shadow: 0 2px 6px rgba(79, 70, 229, 0.1);
+    }
+
+    #vr-search-input {
+      flex: 1;
+      padding: 12px 18px;
+      border: 2px solid rgba(79, 70, 229, 0.3);
+      border-radius: 10px;
+      font-size: 14px;
+      background: rgba(15, 23, 42, 0.6);
+      color: #e2e8f0;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      font-weight: 500;
+    }
+
+    .light-theme #vr-search-input {
+      background: #f8fafc;
+      border-color: rgba(79, 70, 229, 0.25);
+      color: #1e293b;
+    }
+
+    #vr-search-input:focus {
+      outline: none;
+      border-color: #4f46e5;
+      box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2), 0 4px 12px rgba(79, 70, 229, 0.15);
+      transform: translateY(-1px);
+      background: rgba(15, 23, 42, 0.8);
+    }
+
+    .light-theme #vr-search-input:focus {
+      background: #ffffff;
+      box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15), 0 4px 12px rgba(79, 70, 229, 0.1);
+    }
+
+    #vr-search-input::placeholder {
+      color: rgba(226, 232, 240, 0.5);
+    }
+
+    .light-theme #vr-search-input::placeholder {
+      color: rgba(30, 41, 59, 0.4);
+    }
+
+    .vr-transcript-header {
+      background: linear-gradient(135deg, rgba(79, 70, 229, 0.15) 0%, rgba(124, 58, 237, 0.1) 100%);
+      border-bottom: 2px solid rgba(79, 70, 229, 0.5);
+      padding: 24px;
+      flex-shrink: 0;
+      backdrop-filter: blur(8px);
+    }
+
+    .light-theme .vr-transcript-header {
+      background: linear-gradient(135deg, rgba(79, 70, 229, 0.08) 0%, rgba(99, 102, 241, 0.05) 100%);
+      border-bottom: 2px solid rgba(79, 70, 229, 0.3);
+    }
+
+    .vr-transcript-header h2 {
+      margin: 0 0 8px 0;
+      font-size: 20px;
+      font-weight: 700;
+      color: #f1f5f9;
+      letter-spacing: -0.02em;
+    }
+
+    .light-theme .vr-transcript-header h2 {
+      color: #1e293b;
+    }
+
+    .vr-transcript-count {
+      font-size: 13px;
+      font-weight: 600;
+      color: rgba(148, 163, 184, 0.9);
+      letter-spacing: 0.02em;
+    }
+
+    .light-theme .vr-transcript-count {
+      color: rgba(71, 85, 105, 0.8);
+    }
+
+    .vr-transcript-content {
+      flex: 1;
+      padding: 8px 20px;
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+
+    .vr-transcript-content::-webkit-scrollbar {
+      width: 12px;
+    }
+
+    .vr-transcript-content::-webkit-scrollbar-track {
+      background: #1e1e1e;
+    }
+
+    .light-theme .vr-transcript-content::-webkit-scrollbar-track {
+      background: #f5f5f5;
+    }
+
+    .vr-transcript-content::-webkit-scrollbar-thumb {
+      background: #444;
+      border-radius: 6px;
+    }
+
+    .light-theme .vr-transcript-content::-webkit-scrollbar-thumb {
+      background: #ccc;
+    }
+
+    /* Transcript paragraphs (time-based groups) */
+    .vr-transcript-paragraph {
+      margin-bottom: 6px;
+      padding: 8px 20px;
+      line-height: 1.4;
+      font-size: 16px;
+      color: #cbd5e1;
+      border-left: 3px solid transparent;
+      transition: border-color 0.3s ease;
+    }
+
+    .light-theme .vr-transcript-paragraph {
+      color: #475569;
+    }
+
+    .vr-transcript-paragraph.active {
+      border-left-color: #4f46e5;
+    }
+
+    /* Time badge for paragraphs */
+    .vr-time-badge {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 700;
+      color: #6366f1;
+      background: rgba(99, 102, 241, 0.15);
+      padding: 3px 8px;
+      border-radius: 4px;
+      margin-right: 12px;
+      font-family: 'SF Mono', 'Courier New', monospace;
+      letter-spacing: 0.5px;
+      user-select: none;
+      pointer-events: none;
+    }
+
+    .light-theme .vr-time-badge {
+      color: #4f46e5;
+      background: rgba(79, 70, 229, 0.12);
+    }
+
+    /* Text segments (clickable parts) */
+    .text-segment {
+      cursor: pointer;
+      transition: all 0.2s ease;
+      padding: 2px 0;
+      display: inline;
+    }
+
+    .text-segment:hover {
+      background: rgba(79, 70, 229, 0.15);
+      border-radius: 3px;
+      padding: 2px 4px;
+    }
+
+    .light-theme .text-segment:hover {
+      background: rgba(79, 70, 229, 0.1);
+    }
+
+    /* Active (currently speaking) segment - gray highlight */
+    .text-segment.segment-active {
+      background: rgba(148, 163, 184, 0.35);
+      padding: 3px 6px;
+      border-radius: 4px;
+      font-weight: 500;
+    }
+
+    .light-theme .text-segment.segment-active {
+      background: rgba(71, 85, 105, 0.25);
+    }
+
+    /* User highlights */
+    .user-highlight {
+      background: rgba(250, 204, 21, 0.3);
+      padding: 2px 4px;
+      border-radius: 3px;
+      cursor: pointer;
+      position: relative;
+      transition: all 0.2s ease;
+    }
+
+    .light-theme .user-highlight {
+      background: rgba(250, 204, 21, 0.4);
+    }
+
+    .user-highlight:hover {
+      background: rgba(250, 204, 21, 0.5);
+      box-shadow: 0 2px 4px rgba(250, 204, 21, 0.3);
+    }
+
+    .light-theme .user-highlight:hover {
+      background: rgba(250, 204, 21, 0.6);
+    }
+
+    /* Trash icon for highlights */
+    .highlight-trash {
+      position: absolute;
+      top: -10px;
+      right: -10px;
+      width: 18px;
+      height: 18px;
+      background: #ef4444;
+      border-radius: 50%;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 10px;
+      color: white;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      z-index: 10;
+      transition: all 0.2s;
+    }
+
+    .highlight-trash:hover {
+      background: #dc2626;
+      transform: scale(1.1);
+    }
+
+    .user-highlight:hover .highlight-trash {
+      display: flex;
+    }
+
+    @media (max-width: 1400px) {
+      .vr-video-container {
+        max-width: 95%;
+      }
+    }
+
+    @media (max-width: 900px) {
+      .vr-video-section {
+        padding: 10px;
+      }
+
+      .vr-transcript-content {
+        padding: 8px 15px;
+      }
+    }
+
+    @media (max-width: 600px) {
+      .vr-video-section {
+        padding: 5px;
+      }
+
+      .vr-toolbar {
+        padding: 10px 15px;
+      }
+
+      .vr-btn {
+        padding: 6px 12px;
+        font-size: 13px;
+      }
+
+      .vr-transcript-content {
+        padding: 8px 10px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="video-reader-container">
+    <div class="vr-toolbar">
+      <div class="vr-toolbar-left">
+        <button class="vr-btn vr-exit" id="vr-exit">✕ Exit</button>
+        <span class="vr-title">YouTube Video Reader</span>
+      </div>
+      <div class="vr-toolbar-right">
+        <button class="vr-btn" id="vr-theme-toggle" title="Toggle Theme">🌙</button>
+        <button class="vr-btn" id="vr-export" title="Export Transcript">💾</button>
+      </div>
+    </div>
+
+    <div class="vr-main-content">
+      <div class="vr-video-section">
+        <div class="vr-video-container" id="video-container">
+          <!-- Video iframe will be inserted here -->
+        </div>
+      </div>
+
+      <div class="vr-transcript-section">
+        <div class="vr-search-panel">
+          <input type="text" id="vr-search-input" placeholder="🔍 Search transcript...">
+        </div>
+
+        <div class="vr-transcript-header">
+          <h2>Transcript</h2>
+          <span class="vr-transcript-count" id="transcript-count">0 segments</span>
+        </div>
+
+        <div class="vr-transcript-content" id="transcript-content">
+          <div style="text-align: center; padding: 40px; color: #666;">
+            Loading transcript...
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="youtube-reader.js"></script>
+</body>
+</html>

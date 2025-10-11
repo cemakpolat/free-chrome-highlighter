@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Universal Web Highlighter - Options</title>
+    <link rel="stylesheet" href="options.css">
+</head>
+<body>
+    <div class="container">
+        <h1>🌟 Universal Web Highlighter - Options</h1>
+
+        <div class="section">
+            <h2>🤖 External Automation Sync</h2>
+            <div class="info">
+                <strong>Simple & Reliable:</strong> Connect your highlights to Latenode, Zapier, or any webhook endpoint.
+                No OAuth headaches, no token management - just works!
+            </div>
+
+            <label for="syncEndpoint">Automation Webhook URL:</label>
+            <input type="url" id="syncEndpoint" placeholder="https://your-automation.webhook.com/highlights">
+
+            <button id="testConnection">🧪 Test Connection</button>
+            <button id="saveEndpoint">💾 Save</button>
+            <button id="clearEndpoint" class="secondary">🗑️ Clear</button>
+
+            <div id="connectionStatus" class="status"></div>
+        </div>
+
+        <div class="section">
+            <h2>📊 Current Status</h2>
+            <div id="currentStatus">
+                <p><strong>Storage Type:</strong> <span id="storageType">-</span></p>
+                <p><strong>User ID:</strong> <span id="userId">-</span></p>
+                <p><strong>Sync Endpoint:</strong> <span id="currentEndpoint">-</span></p>
+                <p><strong>Status:</strong> <span id="syncStatus">-</span></p>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>🔧 Automation Setup Guide</h2>
+            <p><strong>Expected HTTP POST payload:</strong></p>
+            <div class="code">
+{
+  "action": "save_highlights",
+  "userId": "user_12345_abc123",
+  "domain": "example.com",
+  "highlights": {
+    "highlights": [
+      {
+        "id": "highlight_123_xyz",
+        "text": "Selected text",
+        "color": "#ff6b6b",
+        "url": "https://example.com",
+        "timestamp": "2025-09-27T12:00:00.000Z"
+      }
+    ],
+    "lastModified": 1727433600000
+  },
+  "timestamp": 1727433600000,
+  "browser": "chrome"
+}
+            </div>
+
+            <p><strong>Latenode Setup:</strong></p>
+            <ol>
+                <li>Create new scenario in Latenode</li>
+                <li>Add "Webhook" trigger → Copy webhook URL</li>
+                <li>Add "Google Drive" action → Connect your account</li>
+                <li>Configure to save highlights as JSON files</li>
+                <li>Paste webhook URL above and test!</li>
+            </ol>
+        </div>
+    </div>
+
+    <script src="options.js"></script>
+</body>
+</html>

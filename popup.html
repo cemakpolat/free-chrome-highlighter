@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Universal Web Highlighter</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      width: 400px;
+      min-height: 600px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #fafbfc;
+      color: #333;
+      overflow-x: hidden;
+    }
+
+    /* Modern Header */
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      padding: 24px 20px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .header::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      right: -50%;
+      width: 200%;
+      height: 200%;
+      background: linear-gradient(45deg, rgba(255,255,255,0.1) 0%, transparent 100%);
+      animation: shimmer 3s ease-in-out infinite;
+    }
+
+    @keyframes shimmer {
+      0%, 100% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
+      50% { transform: translateX(0%) translateY(0%) rotate(45deg); }
+    }
+
+    .header-content {
+      position: relative;
+      z-index: 2;
+    }
+
+    .logo-section {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+
+    .logo-icon {
+      width: 32px;
+      height: 32px;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      backdrop-filter: blur(10px);
+    }
+
+    .logo-text {
+      color: white;
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: -0.5px;
+    }
+
+    .tagline {
+      color: rgba(255, 255, 255, 0.9);
+      font-size: 13px;
+      font-weight: 400;
+      margin-left: 44px;
+    }
+
+    /* Navigation Tabs */
+    .nav-tabs {
+      background: white;
+      display: flex;
+      border-bottom: 1px solid #e9ecef;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .nav-tab {
+      flex: 1;
+      padding: 16px 12px;
+      text-align: center;
+      font-size: 14px;
+      font-weight: 500;
+      color: #6c757d;
+      background: none;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      position: relative;
+    }
+
+    .nav-tab.active {
+      color: #667eea;
+      background: #f8f9fa;
+    }
+
+    .nav-tab.active::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, #667eea, #764ba2);
+      border-radius: 3px 3px 0 0;
+    }
+
+    .nav-tab:hover {
+      background: #f8f9fa;
+      color: #495057;
+    }
+
+    /* Tab Content */
+    .tab-content {
+      display: none;
+      padding: 20px;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Quick Actions Section */
+    .quick-actions {
+      margin-bottom: 24px;
+    }
+
+    .section-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #343a40;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .action-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .action-card {
+      background: white;
+      border: 1px solid #e9ecef;
+      border-radius: 12px;
+      padding: 16px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+    }
+
+    .action-card:hover {
+      border-color: #667eea;
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+      transform: translateY(-2px);
+    }
+
+    .action-card.primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border-color: transparent;
+      grid-column: span 2;
+    }
+
+    .action-card.primary:hover {
+      box-shadow: 0 6px 20px rgba(102, 126, 234, 0.3);
+      transform: translateY(-3px);
+    }
+
+    .action-icon {
+      font-size: 24px;
+      margin-bottom: 8px;
+      display: block;
+    }
+
+    .action-title {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .action-subtitle {
+      font-size: 12px;
+      opacity: 0.8;
+    }
+
+    /* Search Section */
+    .search-section {
+      margin-bottom: 20px;
+    }
+
+    .search-container {
+      position: relative;
+      margin-bottom: 16px;
+    }
+
+    .search-input {
+      width: 100%;
+      padding: 12px 16px 12px 44px;
+      border: 2px solid #e9ecef;
+      border-radius: 12px;
+      font-size: 14px;
+      background: white;
+      transition: all 0.2s ease;
+    }
+
+    .search-input:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #6c757d;
+      font-size: 16px;
+    }
+
+    /* Filter Chips */
+    .filter-chips {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .filter-chip {
+      padding: 6px 12px;
+      background: white;
+      border: 1px solid #e9ecef;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+
+    .filter-chip.active {
+      background: #667eea;
+      color: white;
+      border-color: #667eea;
+    }
+
+    .filter-chip:hover {
+      border-color: #667eea;
+      background: #f8f9fa;
+    }
+
+    .filter-chip.active:hover {
+      background: #5a67d8;
+    }
+
+    /* Highlights List */
+    .highlights-container {
+      max-height: 300px;
+      overflow-y: auto;
+      margin-top: 16px;
+    }
+
+    .highlight-item {
+      background: white;
+      border: 1px solid #e9ecef;
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 12px;
+      transition: all 0.2s ease;
+      position: relative;
+    }
+
+    .highlight-item:hover {
+      border-color: #667eea;
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.1);
+      transform: translateY(-1px);
+    }
+
+    .highlight-content {
+      margin-bottom: 12px;
+    }
+
+    .highlight-text {
+      font-size: 14px;
+      line-height: 1.5;
+      padding: 12px;
+      border-radius: 8px;
+      background: #fff8dc;
+      border-left: 4px solid #ffd700;
+      margin-bottom: 8px;
+    }
+
+    .highlight-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      color: #6c757d;
+    }
+
+    .highlight-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .action-btn {
+      padding: 6px 12px;
+      border: 1px solid #e9ecef;
+      border-radius: 6px;
+      background: white;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .action-btn:hover {
+      border-color: #667eea;
+      color: #667eea;
+    }
+
+    .action-btn.danger:hover {
+      border-color: #dc3545;
+      color: #dc3545;
+      background: #fff5f5;
+    }
+
+    /* Stats Cards */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .stat-card {
+      background: white;
+      border: 1px solid #e9ecef;
+      border-radius: 12px;
+      padding: 16px;
+      text-align: center;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+    }
+
+    .stat-number {
+      font-size: 24px;
+      font-weight: 700;
+      color: #667eea;
+      display: block;
+    }
+
+    .stat-label {
+      font-size: 12px;
+      color: #6c757d;
+      margin-top: 4px;
+    }
+
+    /* Sync Status */
+    .sync-status {
+      background: white;
+      border: 1px solid #e9ecef;
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+    }
+
+    .sync-status.connected {
+      border-color: #28a745;
+      background: linear-gradient(135deg, #d4edda 0%, #f8fff9 100%);
+    }
+
+    .sync-status.disconnected {
+      border-color: #ffc107;
+      background: linear-gradient(135deg, #fff3cd 0%, #fffef7 100%);
+    }
+
+    .sync-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .sync-title {
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .sync-subtitle {
+      font-size: 12px;
+      color: #6c757d;
+      margin-bottom: 12px;
+    }
+
+    .connect-btn {
+      width: 100%;
+      padding: 12px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .connect-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    }
+
+    /* Empty State */
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: #6c757d;
+    }
+
+    .empty-icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+      opacity: 0.5;
+    }
+
+    .empty-title {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .empty-subtitle {
+      font-size: 14px;
+      line-height: 1.4;
+    }
+
+    /* Loading State */
+    .loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .spinner {
+      width: 32px;
+      height: 32px;
+      border: 3px solid #e9ecef;
+      border-top: 3px solid #667eea;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    /* Scrollbar Styling */
+    .highlights-container::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .highlights-container::-webkit-scrollbar-track {
+      background: #f1f1f1;
+      border-radius: 3px;
+    }
+
+    .highlights-container::-webkit-scrollbar-thumb {
+      background: #c1c1c1;
+      border-radius: 3px;
+    }
+
+    .highlights-container::-webkit-scrollbar-thumb:hover {
+      background: #a8a8a8;
+    }
+
+    /* Responsive adjustments */
+    @media (max-height: 600px) {
+      .highlights-container {
+        max-height: 200px;
+      }
+    }
+
+    /* Utility classes */
+    .hidden {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+  <!-- Modern Header -->
+  <div class="header">
+    <div class="header-content">
+      <div class="logo-section">
+        <div class="logo-icon">🎯</div>
+        <div class="logo-text">Web Highlighter</div>
+      </div>
+      <div class="tagline">Highlight, organize, and sync across devices</div>
+    </div>
+  </div>
+
+  <!-- Navigation Tabs -->
+  <div class="nav-tabs">
+    <button class="nav-tab active" data-tab="highlights">Highlights</button>
+    <button class="nav-tab" data-tab="manage">Manage</button>
+    <button class="nav-tab" data-tab="settings">Settings</button>
+  </div>
+
+  <!-- Highlights Tab -->
+  <div id="highlights-tab" class="tab-content active">
+    <!-- Search Section -->
+    <div class="search-section">
+      <div class="search-container">
+        <div class="search-icon">🔍</div>
+        <input type="text" class="search-input" placeholder="Search your highlights..." id="searchInput">
+      </div>
+
+      <div class="filter-chips">
+        <div class="filter-chip active" data-filter="all">All</div>
+        <div class="filter-chip" data-filter="today">Today</div>
+        <div class="filter-chip" data-filter="week">This Week</div>
+        <div class="filter-chip" data-filter="notes">With Notes</div>
+      </div>
+    </div>
+
+    <!-- Highlights List -->
+    <div class="highlights-container" id="highlightsContainer">
+      <div class="loading">
+        <div class="spinner"></div>
+        <div>Loading your highlights...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Manage Tab -->
+  <div id="manage-tab" class="tab-content">
+    <!-- Quick Actions with Manage All Highlights in prominent position -->
+    <div class="quick-actions">
+      <div class="section-title">
+        <span>⚡</span>
+        Quick Actions
+      </div>
+
+      <div class="action-grid">
+        <!-- Manage All Highlights - Primary Action -->
+        <div class="action-card primary" id="openManagerBtn">
+          <span class="action-icon">📚</span>
+          <div class="action-title">Manage All Highlights</div>
+          <div class="action-subtitle">View, search, and organize everything</div>
+        </div>
+
+        <div class="action-card" id="exportBtn">
+          <span class="action-icon">📤</span>
+          <div class="action-title">Export</div>
+          <div class="action-subtitle">Download highlights</div>
+        </div>
+
+        <div class="action-card" id="importBtn">
+          <span class="action-icon">📥</span>
+          <div class="action-title">Import</div>
+          <div class="action-subtitle">Upload highlights</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stats Overview -->
+    <div class="quick-actions">
+      <div class="section-title">
+        <span>📊</span>
+        Your Stats
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card">
+          <span class="stat-number" id="totalHighlights">-</span>
+          <div class="stat-label">Total Highlights</div>
+        </div>
+        <div class="stat-card">
+          <span class="stat-number" id="thisWeek">-</span>
+          <div class="stat-label">This Week</div>
+        </div>
+        <div class="stat-card">
+          <span class="stat-number" id="totalPages">-</span>
+          <div class="stat-label">Pages</div>
+        </div>
+        <div class="stat-card">
+          <span class="stat-number" id="withNotes">-</span>
+          <div class="stat-label">With Notes</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sync Status -->
+    <div class="sync-status" id="syncStatus">
+      <div class="sync-header">
+        <span id="syncIcon">🔄</span>
+        <span class="sync-title" id="syncTitle">Checking sync status...</span>
+      </div>
+      <div class="sync-subtitle" id="syncSubtitle">Please wait while we check your connection</div>
+      <button class="connect-btn hidden" id="connectDriveBtn">
+        Connect Google Drive
+      </button>
+    </div>
+  </div>
+
+  <!-- Settings Tab -->
+  <div id="settings-tab" class="tab-content">
+    <!-- Sync Settings -->
+    <div class="quick-actions">
+      <div class="section-title">
+        <span>☁️</span>
+        Sync Settings
+      </div>
+
+      <div class="sync-status" id="syncSetup">
+        <div class="sync-header">
+          <span>🔗</span>
+          <span class="sync-title">Google Drive Sync</span>
+        </div>
+        <div class="sync-subtitle">
+          Automatically backup and sync your highlights across all your devices
+        </div>
+        <button class="connect-btn" id="connectDriveBtn2">
+          Connect Google Drive
+        </button>
+      </div>
+    </div>
+
+    <!-- App Settings -->
+    <div class="quick-actions">
+      <div class="section-title">
+        <span>⚙️</span>
+        App Settings
+      </div>
+
+      <div class="action-grid">
+        <div class="action-card" id="colorSettings">
+          <span class="action-icon">🎨</span>
+          <div class="action-title">Colors</div>
+          <div class="action-subtitle">Customize palette</div>
+        </div>
+
+        <div class="action-card" id="shortcutSettings">
+          <span class="action-icon">⌨️</span>
+          <div class="action-title">Shortcuts</div>
+          <div class="action-subtitle">Keyboard controls</div>
+        </div>
+
+        <div class="action-card" id="privacySettings">
+          <span class="action-icon">🔒</span>
+          <div class="action-title">Privacy</div>
+          <div class="action-subtitle">Data handling</div>
+        </div>
+
+        <div class="action-card" id="aboutBtn">
+          <span class="action-icon">ℹ️</span>
+          <div class="action-title">About</div>
+          <div class="action-subtitle">Version & info</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

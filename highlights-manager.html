@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Universal Web Highlighter - Highlight Manager</title>
+  <link rel="stylesheet" href="highlights-manager.css">
+</head>
+<body>
+  <div class="header">
+    <h1>🌟 Highlight Manager</h1>
+    <p>Organize and explore your highlighted content</p>
+  </div>
+
+  <div class="container">
+    <!-- Controls Section -->
+    <div class="controls">
+      <div class="search-box">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="searchInput" placeholder="Search highlights, notes, or pages...">
+      </div>
+
+      <div class="filter-group">
+        <button class="filter-btn active" data-filter="all">All</button>
+        <button class="filter-btn" data-filter="today">Today</button>
+        <button class="filter-btn" data-filter="week">This Week</button>
+        <button class="filter-btn" data-filter="month">This Month</button>
+        <button class="filter-btn" data-filter="notes">With Notes</button>
+      </div>
+
+      <div class="advanced-filters">
+        <input type="text" id="tagFilter" class="filter-input" placeholder="Filter by tags...">
+      </div>
+
+      <div class="sync-status" id="syncStatus">
+        <span>✅</span>
+        <span>Synced</span>
+      </div>
+    </div>
+
+    <!-- Stats Section -->
+    <div class="stats">
+      <div class="stat-item">
+        <div class="stat-number" id="totalHighlights">-</div>
+        <div class="stat-label">Total Highlights</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-number" id="totalPages">-</div>
+        <div class="stat-label">Pages</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-number" id="totalNotes">-</div>
+        <div class="stat-label">With Notes</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-number" id="thisWeek">-</div>
+        <div class="stat-label">This Week</div>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="content">
+      <!-- Sidebar with page list -->
+      <div class="sidebar">
+        <div class="sidebar-header">
+          📚 Pages
+        </div>
+        <div class="page-list" id="pageList">
+          <div class="loading">Loading pages...</div>
+        </div>
+      </div>
+
+      <!-- Main content area -->
+      <div class="main-content">
+        <div class="content-header">
+          <h2 class="content-title" id="contentTitle">Select a page to view highlights</h2>
+          <div class="content-actions">
+            <button class="action-btn" id="generateSummaryBtn">
+              🤖 AI Summary
+            </button>
+            <button class="action-btn" id="exportBtn">
+              📤 Export
+            </button>
+            <button class="action-btn" id="refreshBtn">
+              🔄 Refresh
+            </button>
+          </div>
+        </div>
+
+        <!-- AI Summary Panel -->
+        <div class="summary-panel hidden" id="summaryPanel">
+          <div class="summary-header">
+            <h3>🤖 AI Summary</h3>
+            <button class="close-summary" id="closeSummaryBtn">✕</button>
+          </div>
+          <div class="summary-content">
+            <div class="summary-loading hidden" id="summaryLoading">
+              <div class="loading-spinner"></div>
+              <p>Generating AI summary...</p>
+            </div>
+            <div class="summary-text" id="summaryText"></div>
+            <div class="summary-actions">
+              <button class="action-btn" id="playSummaryBtn">🔊 Listen</button>
+              <button class="action-btn" id="copySummaryBtn">📋 Copy</button>
+              <button class="action-btn" id="exportSummaryBtn">📤 Export</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="highlights-container" id="highlightsContainer">
+          <div class="empty-state">
+            <h3>📝 Ready to explore your highlights</h3>
+            <p>Select a page from the sidebar to view your highlighted content</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Export Modal -->
+  <div class="modal-overlay" id="exportModal">
+    <div class="export-modal">
+      <div class="modal-header">
+        <h3 class="modal-title">📤 Export Highlights</h3>
+        <button class="modal-close" id="closeExportModal">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="export-description">Choose your export format:</p>
+        <div class="export-formats">
+          <div class="format-option" data-format="json">
+            <div class="format-icon">📄</div>
+            <div class="format-name">JSON</div>
+            <div class="format-desc">Machine-readable data format</div>
+          </div>
+          <div class="format-option" data-format="html">
+            <div class="format-icon">🌐</div>
+            <div class="format-name">HTML</div>
+            <div class="format-desc">Web page with styled highlights</div>
+          </div>
+          <div class="format-option" data-format="markdown">
+            <div class="format-icon">📝</div>
+            <div class="format-name">Markdown</div>
+            <div class="format-desc">Plain text with formatting</div>
+          </div>
+          <div class="format-option" data-format="pdf">
+            <div class="format-icon">📊</div>
+            <div class="format-name">PDF</div>
+            <div class="format-desc">Printable document</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Note Modal -->
+  <div class="modal-overlay" id="editNoteModal">
+    <div class="edit-note-modal">
+      <div class="modal-header">
+        <h3 class="modal-title">✏️ Edit Note</h3>
+        <button class="modal-close" id="closeEditModal">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="highlight-preview" id="highlightPreview">
+          <!-- Highlight text will be shown here -->
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="noteTextarea">Add your thoughts, insights, or context:</label>
+          <textarea
+            class="form-textarea"
+            id="noteTextarea"
+            placeholder="Write your note here... This could be a summary, question, insight, or anything that helps you remember why this text is important."
+          ></textarea>
+          <div class="tip-text">
+            💡 Tip: Press <kbd>Ctrl+Enter</kbd> (or <kbd>⌘+Enter</kbd>) to save quickly
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="modal-btn secondary" id="cancelEditNote">Cancel</button>
+        <button class="modal-btn primary" id="saveEditNote">Save Note</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delete Confirmation Modal -->
+  <div id="deleteModal" class="delete-modal" style="display: none;">
+    <div class="delete-modal-backdrop"></div>
+    <div class="delete-modal-content">
+      <div class="delete-modal-header">
+        <div class="delete-modal-icon">⚠️</div>
+        <h3 class="delete-modal-title">Confirm Deletion</h3>
+      </div>
+
+      <div class="delete-modal-body">
+        <p id="deleteModalMessage" class="delete-modal-message"></p>
+      </div>
+
+      <div class="delete-modal-checkbox">
+        <label>
+          <input type="checkbox" id="dontShowAgainCheckbox">
+          <span>Don't show this confirmation again</span>
+        </label>
+      </div>
+
+      <div class="delete-modal-footer">
+        <button id="deleteModalCancel" class="delete-modal-btn delete-modal-btn-cancel">Cancel</button>
+        <button id="deleteModalConfirm" class="delete-modal-btn delete-modal-btn-delete">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="ai-summary-service.js"></script>
+  <script src="tts-service.js"></script>
+  <script src="highlights-manager.js"></script>
+</body>
+</html>
