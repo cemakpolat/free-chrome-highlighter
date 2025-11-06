@@ -4,615 +4,93 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>PDF Reader & Highlighter</title>
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-      background: #1e293b;
-      color: #e2e8f0;
-      overflow: hidden;
-    }
-
-    body.light-theme {
-      background: #f8fafc;
-      color: #1e293b;
-    }
-
-    #pdf-reader-container {
-      width: 100vw;
-      height: 100vh;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .pdf-toolbar {
-      background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
-      border-bottom: 1px solid rgba(255,255,255,0.1);
-      padding: 12px 24px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-shrink: 0;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
-      z-index: 100;
-    }
-
-    .light-theme .pdf-toolbar {
-      background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
-    }
-
-    .pdf-toolbar-left,
-    .pdf-toolbar-right {
-      display: flex;
-      gap: 10px;
-      align-items: center;
-    }
-
-    .pdf-title {
-      font-size: 16px;
-      font-weight: 700;
-      color: white;
-      margin-left: 12px;
-    }
-
-    .pdf-btn {
-      padding: 8px 16px;
-      background: rgba(255, 255, 255, 0.15);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      border-radius: 8px;
-      cursor: pointer;
-      font-size: 14px;
-      font-weight: 600;
-      color: white;
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      backdrop-filter: blur(10px);
-    }
-
-    .pdf-btn:hover {
-      background: rgba(255, 255, 255, 0.25);
-      transform: translateY(-1px);
-    }
-
-    .pdf-btn:active {
-      transform: translateY(0);
-    }
-
-    .pdf-highlight-count {
-      color: white;
-      font-size: 13px;
-      font-weight: 600;
-      background: rgba(255, 255, 255, 0.1);
-      padding: 8px 12px;
-      border-radius: 6px;
-      border: 1px solid rgba(255, 255, 255, 0.2);
-    }
-
-    .pdf-exit {
-      background: rgba(239, 68, 68, 0.9);
-      border-color: rgba(239, 68, 68, 1);
-    }
-
-    .pdf-exit:hover {
-      background: rgba(220, 38, 38, 1);
-    }
-
-    .pdf-main-content {
-      flex: 1;
-      display: flex;
-      overflow: hidden;
-    }
-
-    .pdf-viewer-section {
-      flex: 1;
-      background: #0f172a;
-      overflow: auto;
-      position: relative;
-    }
-
-    .light-theme .pdf-viewer-section {
-      background: #e2e8f0;
-    }
-
-    #pdf-canvas-container {
-      width: 100%;
-      min-height: 100%;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 20px;
-      gap: 20px;
-    }
-
-    .pdf-page {
-      position: relative;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
-      margin-bottom: 20px;
-    }
-
-    .pdf-page canvas {
-      display: block;
-      max-width: 100%;
-      height: auto;
-    }
-
-    .pdf-text-layer {
-      position: absolute;
-      left: 0;
-      top: 0;
-      right: 0;
-      bottom: 0;
-      overflow: hidden;
-      opacity: 0.2;
-      line-height: 1.0;
-      text-align: initial;
-    }
-
-    .pdf-text-layer span,
-    .pdf-text-layer br {
-      color: transparent;
-      position: absolute;
-      white-space: pre;
-      cursor: text;
-      transform-origin: 0% 0%;
-    }
-
-    .pdf-text-layer .highlight {
-      margin: -1px;
-      padding: 1px;
-      background-color: rgba(180, 0, 170, 0.2);
-      border-radius: 4px;
-    }
-
-    .pdf-text-layer .highlight.begin {
-      border-radius: 4px 0 0 4px;
-    }
-
-    .pdf-text-layer .highlight.end {
-      border-radius: 0 4px 4px 0;
-    }
-
-    .pdf-text-layer .highlight.middle {
-      border-radius: 0;
-    }
-
-    .pdf-text-layer .highlight.selected {
-      background-color: rgba(0, 100, 0, 0.2);
-    }
-
-    /* Make text selectable */
-    .pdf-text-layer ::selection {
-      background: rgba(0, 100, 255, 0.3);
-    }
-
-    .pdf-highlight-layer {
-      position: absolute;
-      left: 0;
-      top: 0;
-      right: 0;
-      bottom: 0;
-      pointer-events: none;
-    }
-
-    .pdf-highlight {
-      position: absolute;
-      background: rgba(250, 204, 21, 0.4);
-      pointer-events: auto;
-      cursor: pointer;
-      transition: background 0.2s;
-    }
-
-    .pdf-highlight:hover {
-      background: rgba(250, 204, 21, 0.6);
-    }
-
-    .pdf-highlight-trash {
-      position: absolute;
-      top: -10px;
-      right: -10px;
-      width: 22px;
-      height: 22px;
-      background: #ef4444;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      font-size: 12px;
-      color: white;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-      z-index: 11;
-      transition: all 0.2s;
-      opacity: 0;
-      border: 2px solid white;
-      pointer-events: none;
-    }
-
-    .pdf-highlight-trash:hover {
-      background: #dc2626;
-      transform: scale(1.2);
-    }
-
-    .pdf-highlight:hover .pdf-highlight-trash {
-      opacity: 1;
-      pointer-events: auto;
-    }
-
-    /* Highlight colors */
-    .pdf-highlight.yellow {
-      background: rgba(250, 204, 21, 0.4);
-    }
-
-    .pdf-highlight.yellow:hover {
-      background: rgba(250, 204, 21, 0.6);
-    }
-
-    .pdf-highlight.green {
-      background: rgba(34, 197, 94, 0.4);
-    }
-
-    .pdf-highlight.green:hover {
-      background: rgba(34, 197, 94, 0.6);
-    }
-
-    .pdf-highlight.blue {
-      background: rgba(59, 130, 246, 0.4);
-    }
-
-    .pdf-highlight.blue:hover {
-      background: rgba(59, 130, 246, 0.6);
-    }
-
-    .pdf-highlight.pink {
-      background: rgba(236, 72, 153, 0.4);
-    }
-
-    .pdf-highlight.pink:hover {
-      background: rgba(236, 72, 153, 0.6);
-    }
-
-    .pdf-highlight.orange {
-      background: rgba(251, 146, 60, 0.4);
-    }
-
-    .pdf-highlight.orange:hover {
-      background: rgba(251, 146, 60, 0.6);
-    }
-
-    /* Note icon for annotations */
-    .pdf-highlight-note {
-      position: absolute;
-      top: -10px;
-      left: -10px;
-      width: 22px;
-      height: 22px;
-      background: #3b82f6;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      font-size: 11px;
-      color: white;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-      z-index: 11;
-      transition: all 0.2s;
-      opacity: 0;
-      border: 2px solid white;
-      pointer-events: none;
-    }
-
-    .pdf-highlight-note:hover {
-      background: #2563eb;
-      transform: scale(1.2);
-    }
-
-    .pdf-highlight:hover .pdf-highlight-note {
-      opacity: 1;
-      pointer-events: auto;
-    }
-
-    /* Search Panel */
-    .pdf-search-panel {
-      background: rgba(30, 41, 59, 0.95);
-      backdrop-filter: blur(10px);
-      padding: 12px 20px;
-      border-bottom: 1px solid rgba(255,255,255,0.1);
-      display: flex;
-      gap: 10px;
-      align-items: center;
-      z-index: 99;
-    }
-
-    .light-theme .pdf-search-panel {
-      background: rgba(255, 255, 255, 0.95);
-      border-bottom: 1px solid rgba(79, 70, 229, 0.2);
-    }
-
-    #pdf-search-input {
-      flex: 1;
-      padding: 8px 12px;
-      border: 2px solid rgba(79, 70, 229, 0.3);
-      border-radius: 6px;
-      font-size: 14px;
-      background: rgba(15, 23, 42, 0.6);
-      color: #e2e8f0;
-    }
-
-    .light-theme #pdf-search-input {
-      background: #f8fafc;
-      color: #1e293b;
-    }
-
-    #pdf-search-results {
-      color: #94a3b8;
-      font-size: 13px;
-      font-weight: 600;
-      min-width: 60px;
-    }
-
-    .light-theme #pdf-search-results {
-      color: #64748b;
-    }
-
-    /* Color Picker */
-    .pdf-color-picker {
-      position: fixed;
-      bottom: 80px;
-      right: 20px;
-      background: rgba(30, 41, 59, 0.95);
-      backdrop-filter: blur(10px);
-      padding: 12px;
-      border-radius: 10px;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
-      display: flex;
-      gap: 8px;
-      align-items: center;
-      z-index: 89;
-    }
-
-    .light-theme .pdf-color-picker {
-      background: rgba(255, 255, 255, 0.95);
-      box-shadow: 0 8px 24px rgba(0,0,0,0.2);
-    }
-
-    .color-label {
-      color: #e2e8f0;
-      font-size: 13px;
-      font-weight: 600;
-    }
-
-    .light-theme .color-label {
-      color: #1e293b;
-    }
-
-    .color-option {
-      width: 32px;
-      height: 32px;
-      border: 2px solid rgba(255,255,255,0.3);
-      border-radius: 6px;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-
-    .color-option:hover {
-      transform: scale(1.1);
-      border-color: rgba(255,255,255,0.6);
-    }
-
-    .color-option.active {
-      border: 3px solid #4f46e5;
-      transform: scale(1.15);
-    }
-
-    /* Annotation Modal */
-    .annotation-modal {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(0,0,0,0.7);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      z-index: 1000;
-    }
-
-    .annotation-modal.show {
-      display: flex;
-    }
-
-    .annotation-content {
-      background: #1e293b;
-      padding: 24px;
-      border-radius: 12px;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.6);
-      max-width: 500px;
-      width: 90%;
-    }
-
-    .light-theme .annotation-content {
-      background: white;
-    }
-
-    .annotation-content h3 {
-      margin: 0 0 16px 0;
-      color: #e2e8f0;
-      font-size: 18px;
-    }
-
-    .light-theme .annotation-content h3 {
-      color: #1e293b;
-    }
-
-    .annotation-content textarea {
-      width: 100%;
-      min-height: 120px;
-      padding: 12px;
-      border: 2px solid rgba(79, 70, 229, 0.3);
-      border-radius: 8px;
-      background: rgba(15, 23, 42, 0.6);
-      color: #e2e8f0;
-      font-size: 14px;
-      font-family: inherit;
-      resize: vertical;
-    }
-
-    .light-theme .annotation-content textarea {
-      background: #f8fafc;
-      color: #1e293b;
-    }
-
-    .annotation-actions {
-      display: flex;
-      gap: 10px;
-      margin-top: 16px;
-      justify-content: flex-end;
-    }
-
-    .pdf-controls {
-      background: rgba(30, 41, 59, 0.9);
-      backdrop-filter: blur(10px);
-      padding: 12px 20px;
-      border-radius: 8px;
-      position: fixed;
-      bottom: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      display: flex;
-      gap: 15px;
-      align-items: center;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
-      z-index: 90;
-    }
-
-    .light-theme .pdf-controls {
-      background: rgba(255, 255, 255, 0.95);
-      box-shadow: 0 4px 20px rgba(0,0,0,0.2);
-    }
-
-    .pdf-page-info {
-      color: white;
-      font-weight: 600;
-      font-size: 14px;
-    }
-
-    .light-theme .pdf-page-info {
-      color: #1e293b;
-    }
-
-    .pdf-zoom-controls {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-    }
-
-    #pdf-zoom-level {
-      color: white;
-      font-weight: 600;
-      min-width: 50px;
-      text-align: center;
-    }
-
-    .light-theme #pdf-zoom-level {
-      color: #1e293b;
-    }
-
-    .loading-message {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      text-align: center;
-      color: #94a3b8;
-      font-size: 18px;
-    }
-
-    .error-message {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      text-align: center;
-      color: #ef4444;
-      font-size: 18px;
-      max-width: 600px;
-      padding: 40px;
-    }
-  </style>
+  <link rel="stylesheet" href="design-tokens.css">
+  <link rel="stylesheet" href="components.css">
+  <link rel="stylesheet" href="pdf-reader.css">
 </head>
 <body>
   <div id="pdf-reader-container">
-    <div class="pdf-toolbar">
+    <div class="pdf-toolbar" role="toolbar" aria-label="PDF viewer toolbar">
       <div class="pdf-toolbar-left">
-        <button class="pdf-btn pdf-exit" id="pdf-exit">✕ Exit</button>
-        <span class="pdf-title" id="pdf-title">PDF Reader & Highlighter</span>
+        <button class="pdf-btn pdf-exit" id="pdf-exit" aria-label="Close PDF reader">✕ Exit</button>
+        <span class="pdf-title" id="pdf-title" role="heading" aria-level="1">PDF Reader & Highlighter</span>
       </div>
       <div class="pdf-toolbar-right">
-        <span id="pdf-highlight-count" class="pdf-highlight-count">0 highlights</span>
-        <button class="pdf-btn" id="pdf-search-toggle" title="Search PDF">🔍 Search</button>
-        <button class="pdf-btn" id="pdf-export-highlights" title="Export Highlights">📤 Export</button>
-        <button class="pdf-btn" id="pdf-theme-toggle" title="Toggle Theme">🌙</button>
-        <button class="pdf-btn" id="pdf-download" title="Download PDF">💾 Download</button>
+        <span id="pdf-highlight-count" class="pdf-highlight-count" aria-live="polite" aria-atomic="true">0 highlights</span>
+        <button class="pdf-btn" id="pdf-search-toggle" title="Search PDF" aria-label="Toggle search panel">🔍 Search</button>
+        <button class="pdf-btn" id="pdf-export-highlights" title="Export Highlights" aria-label="Export all highlights">📤 Export</button>
+        <button class="pdf-btn" id="pdf-theme-toggle" title="Toggle Theme" aria-label="Toggle light/dark theme" aria-pressed="false">🌙</button>
+        <button class="pdf-btn" id="pdf-download" title="Download PDF" aria-label="Download PDF file">💾 Download</button>
       </div>
     </div>
 
     <!-- Search Panel -->
-    <div class="pdf-search-panel" id="pdf-search-panel" style="display: none;">
-      <input type="text" id="pdf-search-input" placeholder="Search in PDF...">
-      <button class="pdf-btn" id="pdf-search-prev">↑</button>
-      <button class="pdf-btn" id="pdf-search-next">↓</button>
-      <span id="pdf-search-results">0 / 0</span>
-      <button class="pdf-btn" id="pdf-search-close">✕</button>
+    <div class="pdf-search-panel" id="pdf-search-panel" style="display: none;" role="search" aria-label="PDF search">
+      <input type="text" id="pdf-search-input" placeholder="Search in PDF..." aria-label="Search text input">
+      <button class="pdf-btn" id="pdf-search-prev" aria-label="Previous search result">↑</button>
+      <button class="pdf-btn" id="pdf-search-next" aria-label="Next search result">↓</button>
+      <span id="pdf-search-results" aria-live="polite" aria-atomic="true">0 / 0</span>
+      <button class="pdf-btn" id="pdf-search-close" aria-label="Close search panel">✕</button>
     </div>
 
     <!-- Color Picker Panel -->
-    <div class="pdf-color-picker" id="pdf-color-picker">
+    <div class="pdf-color-picker" id="pdf-color-picker" role="group" aria-label="Highlight color selection">
       <div class="color-label">Highlight Color:</div>
-      <button class="color-option" data-color="yellow" style="background: rgba(250, 204, 21, 0.4);" title="Yellow"></button>
-      <button class="color-option" data-color="green" style="background: rgba(34, 197, 94, 0.4);" title="Green"></button>
-      <button class="color-option" data-color="blue" style="background: rgba(59, 130, 246, 0.4);" title="Blue"></button>
-      <button class="color-option" data-color="pink" style="background: rgba(236, 72, 153, 0.4);" title="Pink"></button>
-      <button class="color-option" data-color="orange" style="background: rgba(251, 146, 60, 0.4);" title="Orange"></button>
+      <button class="color-option" data-color="yellow" style="background: rgba(250, 204, 21, 0.4);" title="Yellow" aria-label="Yellow highlight"></button>
+      <button class="color-option" data-color="green" style="background: rgba(34, 197, 94, 0.4);" title="Green" aria-label="Green highlight"></button>
+      <button class="color-option" data-color="blue" style="background: rgba(59, 130, 246, 0.4);" title="Blue" aria-label="Blue highlight"></button>
+      <button class="color-option" data-color="pink" style="background: rgba(236, 72, 153, 0.4);" title="Pink" aria-label="Pink highlight"></button>
+      <button class="color-option" data-color="orange" style="background: rgba(251, 146, 60, 0.4);" title="Orange" aria-label="Orange highlight"></button>
     </div>
 
     <div class="pdf-main-content">
-      <div class="pdf-viewer-section">
+      <div class="pdf-viewer-section" role="main" aria-label="PDF viewer">
         <div id="pdf-canvas-container">
-          <div class="loading-message">Loading PDF...</div>
+          <div class="loading-message" role="status" aria-live="polite">Loading PDF...</div>
         </div>
       </div>
     </div>
 
     <!-- Navigation controls -->
-    <div class="pdf-controls">
-      <button class="pdf-btn" id="pdf-prev-page">← Prev</button>
-      <span class="pdf-page-info" id="pdf-page-info">Page 1 of 1</span>
-      <button class="pdf-btn" id="pdf-next-page">Next →</button>
-      <div class="pdf-zoom-controls">
-        <button class="pdf-btn" id="pdf-zoom-out">-</button>
-        <span id="pdf-zoom-level">100%</span>
-        <button class="pdf-btn" id="pdf-zoom-in">+</button>
+    <div class="pdf-controls" role="navigation" aria-label="PDF navigation">
+      <button class="pdf-btn" id="pdf-prev-page" aria-label="Previous page">← Prev</button>
+      <span class="pdf-page-info" id="pdf-page-info" aria-live="polite" aria-atomic="true">Page 1 of 1</span>
+      <button class="pdf-btn" id="pdf-next-page" aria-label="Next page">Next →</button>
+      <div class="pdf-zoom-controls" role="group" aria-label="Zoom controls">
+        <button class="pdf-btn" id="pdf-zoom-out" aria-label="Zoom out">-</button>
+        <span id="pdf-zoom-level" aria-live="polite" aria-atomic="true">100%</span>
+        <button class="pdf-btn" id="pdf-zoom-in" aria-label="Zoom in">+</button>
       </div>
     </div>
   </div>
 
   <!-- Annotation Modal -->
-  <div class="annotation-modal" id="annotation-modal">
+  <div class="annotation-modal" id="annotation-modal" role="dialog" aria-labelledby="annotation-title" aria-modal="true">
     <div class="annotation-content">
-      <h3>✏️ Add Note</h3>
-      <textarea id="annotation-text" placeholder="Type your note here..."></textarea>
+      <h3 id="annotation-title">✏️ Add Note</h3>
+      <label for="annotation-text" class="visually-hidden">Note text</label>
+      <textarea id="annotation-text" placeholder="Type your note here..." aria-label="Note text"></textarea>
       <div class="annotation-actions">
-        <button class="pdf-btn" id="annotation-cancel">Cancel</button>
-        <button class="pdf-btn" id="annotation-save" style="background: #4f46e5;">Save Note</button>
+        <button class="pdf-btn" id="annotation-cancel" aria-label="Cancel note">Cancel</button>
+        <button class="pdf-btn" id="annotation-save" style="background: #4f46e5;" aria-label="Save note">Save Note</button>
       </div>
     </div>
   </div>
+
+  <!-- Visually hidden helper class for screen readers -->
+  <style>
+    .visually-hidden {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border-width: 0;
+    }
+  </style>
 
   <script src="lib/pdf.min.js"></script>
   <script src="pdf-reader.js"></script>
