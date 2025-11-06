@@ -1,11 +1,6 @@
-// PDF Reader - Improved version with fixes
-// Key improvements:
-// 1. CSS transform zoom (no re-rendering)
-// 2. PDF fingerprinting for stable storage
-// 3. Better error handling
-// 4. Improved text selection UX
+// PDF Reader - standalone page for viewing and highlighting PDFs
 
-console.log('📄 PDF Reader initializing (Improved Version)...');
+console.log('📄 PDF Reader initializing...');
 
 // Set PDF.js worker - use local copy
 pdfjsLib.GlobalWorkerOptions.workerSrc = chrome.runtime.getURL('lib/pdf.worker.min.js');
@@ -14,20 +9,15 @@ class PDFReader {
   constructor() {
     this.pdfDoc = null;
     this.pdfUrl = null;
-    this.pdfFingerprint = null; // NEW: Stable PDF identifier
     this.currentPage = 1;
     this.totalPages = 0;
     this.scale = 1.5;
-    this.baseScale = 1.5; // NEW: Base scale for rendering
-    this.zoomLevel = 1.0; // NEW: CSS transform zoom level
     this.highlights = {};
     this.rendering = false;
-    this.currentColor = 'yellow';
+    this.currentColor = 'yellow'; // Default highlight color
     this.searchResults = [];
     this.currentSearchIndex = 0;
     this.currentAnnotationId = null;
-    this.retryCount = 0;
-    this.maxRetries = 3;
     this.init();
   }
 
@@ -37,7 +27,7 @@ class PDFReader {
       const result = await chrome.storage.local.get(['pdfReaderData', 'pdfReaderTheme']);
 
       if (!result.pdfReaderData || !result.pdfReaderData.url) {
-        this.showError('No PDF URL found. Please try opening a PDF first.', true);
+        this.showError('No PDF URL found. Please try again.');
         return;
       }
 
@@ -48,16 +38,18 @@ class PDFReader {
       const theme = result.pdfReaderTheme || 'dark';
       if (theme === 'light') {
         document.body.classList.add('light-theme');
-        const themeBtn = document.getElementById('pdf-theme-toggle');
-        themeBtn.textContent = '☀️';
-        themeBtn.setAttribute('aria-pressed', 'true');
+        document.getElementById('pdf-theme-toggle').textContent = '☀️';
       }
 
       // Setup event listeners first
       this.setupEventListeners();
 
-      // Load and render PDF (with retry logic)
-      await this.loadPDFWithRetry();
+      // Load saved highlights BEFORE rendering PDF
+      // This way highlights are available when pages render
+      await this.loadHighlights();
+
+      // Load and render PDF
+      await this.loadPDF();
 
       console.log('✅ PDF Reader fully initialized');
     } catch (error) {
@@ -66,63 +58,25 @@ class PDFReader {
     }
   }
 
-  /**
-   * NEW: Load PDF with retry logic
-   */
-  async loadPDFWithRetry() {
-    while (this.retryCount < this.maxRetries) {
-      try {
-        await this.loadPDF();
-        return; // Success!
-      } catch (error) {
-        this.retryCount++;
-        console.error(`PDF load attempt ${this.retryCount} failed:`, error);
-
-        if (this.retryCount < this.maxRetries) {
-          this.showTempMessage(`Retrying (${this.retryCount}/${this.maxRetries})...`, 'info');
-          await this.delay(1000 * this.retryCount); // Exponential backoff
-        } else {
-          throw new Error(`Failed after ${this.maxRetries} attempts: ${error.message}`);
-        }
-      }
-    }
-  }
-
   async loadPDF() {
     try {
       console.log('📄 Loading PDF from:', this.pdfUrl);
 
       let pdfData;
-      let pdfArrayBuffer;
 
-      // Fetch PDF data with better error handling
+      // Fetch PDF data to avoid CORS issues
       try {
         const response = await fetch(this.pdfUrl);
-
         if (!response.ok) {
-          if (response.status === 404) {
-            throw new Error('PDF not found (404). The file may have been moved or deleted.');
-          } else if (response.status === 403) {
-            throw new Error('Access denied (403). You may not have permission to view this PDF.');
-          } else {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-          }
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
-
         const blob = await response.blob();
-        pdfArrayBuffer = await blob.arrayBuffer();
-        pdfData = new Uint8Array(pdfArrayBuffer);
+        const arrayBuffer = await blob.arrayBuffer();
+        pdfData = new Uint8Array(arrayBuffer);
         console.log('✅ PDF data fetched successfully');
       } catch (fetchError) {
-        console.error('Fetch failed:', fetchError);
-
-        // Check if CORS error
-        if (fetchError.message.includes('CORS') || fetchError.name === 'TypeError') {
-          throw new Error('Cannot load PDF due to CORS restrictions. Try downloading the PDF first.');
-        }
-
-        // Try direct URL as fallback
-        console.log('Trying direct URL...');
+        console.error('Fetch failed, trying direct URL:', fetchError);
+        // Fallback to direct URL
         pdfData = this.pdfUrl;
       }
 
@@ -132,74 +86,25 @@ class PDFReader {
 
       console.log(`✅ PDF loaded: ${this.totalPages} pages`);
 
-      // NEW: Generate PDF fingerprint for stable storage
-      this.pdfFingerprint = await this.generatePDFFingerprint(pdfArrayBuffer || this.pdfUrl);
-      console.log(`🔑 PDF Fingerprint: ${this.pdfFingerprint}`);
-
       // Update title with filename
       const filename = this.pdfUrl.split('/').pop().split('?')[0] || 'PDF Document';
       document.getElementById('pdf-title').textContent = decodeURIComponent(filename);
-
-      // Load saved highlights BEFORE rendering
-      await this.loadHighlights();
 
       // Render all pages
       await this.renderAllPages();
 
     } catch (error) {
       console.error('Failed to load PDF:', error);
-      throw error; // Re-throw for retry logic
+      this.showError(`Failed to load PDF: ${error.message}. Please try opening the PDF directly from the extension popup.`);
     }
-  }
-
-  /**
-   * NEW: Generate a fingerprint for the PDF
-   * Uses file size + first page content hash as identifier
-   */
-  async generatePDFFingerprint(pdfData) {
-    try {
-      // Method 1: If we have array buffer, use size + simple hash
-      if (pdfData instanceof ArrayBuffer || pdfData instanceof Uint8Array) {
-        const bytes = pdfData instanceof ArrayBuffer ? new Uint8Array(pdfData) : pdfData;
-        const size = bytes.length;
-
-        // Simple hash: sample bytes from start, middle, end
-        const sample = [
-          ...Array.from(bytes.slice(0, Math.min(100, bytes.length))),
-          ...Array.from(bytes.slice(Math.floor(bytes.length / 2), Math.floor(bytes.length / 2) + 100)),
-          ...Array.from(bytes.slice(-Math.min(100, bytes.length)))
-        ];
-
-        const hash = sample.reduce((acc, val) => ((acc << 5) - acc) + val, 0);
-        return `pdf_${size}_${Math.abs(hash)}`;
-      }
-
-      // Method 2: Fallback to URL-based (with cleanup)
-      const cleanUrl = this.pdfUrl.split('?')[0]; // Remove query params
-      const urlHash = this.simpleHash(cleanUrl);
-      return `pdf_url_${urlHash}`;
-    } catch (error) {
-      console.warn('Fingerprint generation failed, using URL hash:', error);
-      return `pdf_url_${this.simpleHash(this.pdfUrl)}`;
-    }
-  }
-
-  /**
-   * NEW: Simple string hash function
-   */
-  simpleHash(str) {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-      const char = str.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash; // Convert to 32-bit integer
-    }
-    return Math.abs(hash).toString(36);
   }
 
   async renderAllPages() {
     const container = document.getElementById('pdf-canvas-container');
     container.innerHTML = '';
+
+    // Set scale factor on container as well
+    container.style.setProperty('--scale-factor', this.scale);
 
     for (let pageNum = 1; pageNum <= this.totalPages; pageNum++) {
       await this.renderPage(pageNum, container);
@@ -212,17 +117,15 @@ class PDFReader {
   async renderPage(pageNum, container) {
     console.log(`📄 Rendering page ${pageNum}`);
     const page = await this.pdfDoc.getPage(pageNum);
-    const viewport = page.getViewport({ scale: this.baseScale });
+    const viewport = page.getViewport({ scale: this.scale });
 
     // Create page container
     const pageDiv = document.createElement('div');
     pageDiv.className = 'pdf-page';
     pageDiv.setAttribute('data-page-number', pageNum);
-    pageDiv.setAttribute('role', 'article');
-    pageDiv.setAttribute('aria-label', `Page ${pageNum} of ${this.totalPages}`);
 
-    // NEW: Apply zoom transform
-    pageDiv.style.transform = `scale(${this.zoomLevel})`;
+    // Set CSS scale factor variable for text layer
+    pageDiv.style.setProperty('--scale-factor', this.scale);
 
     // Create canvas for PDF rendering
     const canvas = document.createElement('canvas');
@@ -274,26 +177,34 @@ class PDFReader {
   }
 
   setupTextSelection(textLayerDiv, pageNum) {
+    console.log(`📝 Setting up text selection for page ${pageNum}`);
     textLayerDiv.addEventListener('mouseup', (e) => {
+      console.log(`🖱️ Mouse up on page ${pageNum}`);
       const selection = window.getSelection();
       const selectedText = selection.toString().trim();
 
+      console.log(`📄 Selected text: "${selectedText.substring(0, 50)}${selectedText.length > 50 ? '...' : ''}"`);
+
       if (selectedText.length > 0) {
         const range = selection.getRangeAt(0);
+        console.log(`✅ Creating highlight for "${selectedText.substring(0, 30)}..."`);
         this.createHighlight(range, selectedText, pageNum);
+      } else {
+        console.log('⚠️ No text selected');
       }
     });
   }
 
   async createHighlight(range, text, pageNum) {
     try {
-      console.log(`🎨 Creating highlight for page ${pageNum}`);
+      console.log(`🎨 createHighlight called for page ${pageNum}, text length: ${text.length}`);
 
       const rects = range.getClientRects();
       if (rects.length === 0) {
         console.warn('⚠️ No rects found for selection');
         return;
       }
+      console.log(`📏 Found ${rects.length} rects for selection`);
 
       const pageDiv = document.querySelector(`[data-page-number="${pageNum}"]`);
       if (!pageDiv) {
@@ -309,87 +220,87 @@ class PDFReader {
 
       const pageBounds = pageDiv.getBoundingClientRect();
 
-      // Store highlight data
-      if (!this.highlights[pageNum]) {
-        this.highlights[pageNum] = [];
+    // Store highlight data
+    if (!this.highlights[pageNum]) {
+      this.highlights[pageNum] = [];
+    }
+
+    const timestamp = Date.now();
+    const highlightId = `highlight_${timestamp}_${Math.random()}`;
+    const highlightData = {
+      id: highlightId,
+      text: text,
+      rects: [],
+      pageNum: pageNum,
+      color: this.currentColor, // Save current color
+      note: '', // Empty note initially
+      timestamp: timestamp, // Add timestamp for sorting
+      url: this.pdfUrl // Add URL for reference
+    };
+
+    // Create highlight elements for each rect
+    Array.from(rects).forEach((rect, index) => {
+      const highlightDiv = document.createElement('div');
+      highlightDiv.className = `pdf-highlight ${this.currentColor}`; // Add color class
+      highlightDiv.setAttribute('data-highlight-id', highlightId);
+
+      // Calculate position relative to page
+      const left = rect.left - pageBounds.left;
+      const top = rect.top - pageBounds.top;
+
+      highlightDiv.style.left = left + 'px';
+      highlightDiv.style.top = top + 'px';
+      highlightDiv.style.width = rect.width + 'px';
+      highlightDiv.style.height = rect.height + 'px';
+
+      // Add icons (only on first rect to avoid clutter)
+      if (index === 0) {
+        // Note icon
+        const noteIcon = document.createElement('div');
+        noteIcon.className = 'pdf-highlight-note';
+        noteIcon.innerHTML = '📝';
+        noteIcon.addEventListener('click', (e) => {
+          e.stopPropagation();
+          e.preventDefault();
+          this.openAnnotationModal(highlightId, pageNum);
+        });
+        highlightDiv.appendChild(noteIcon);
+
+        // Trash icon
+        const trashIcon = document.createElement('div');
+        trashIcon.className = 'pdf-highlight-trash';
+        trashIcon.innerHTML = '🗑️';
+        trashIcon.addEventListener('click', (e) => {
+          e.stopPropagation();
+          e.preventDefault();
+          this.removeHighlight(highlightId, pageNum);
+        });
+        highlightDiv.appendChild(trashIcon);
       }
 
-      const timestamp = Date.now();
-      const highlightId = `highlight_${timestamp}_${Math.random()}`;
-      const highlightData = {
-        id: highlightId,
-        text: text,
-        rects: [],
-        pageNum: pageNum,
-        color: this.currentColor,
-        note: '',
-        timestamp: timestamp,
-        url: this.pdfUrl,
-        fingerprint: this.pdfFingerprint // NEW: Store fingerprint
-      };
+      highlightLayer.appendChild(highlightDiv);
 
-      // Create highlight elements for each rect
-      Array.from(rects).forEach((rect, index) => {
-        const highlightDiv = document.createElement('div');
-        highlightDiv.className = `pdf-highlight ${this.currentColor}`;
-        highlightDiv.setAttribute('data-highlight-id', highlightId);
-        highlightDiv.setAttribute('role', 'mark');
-        highlightDiv.setAttribute('aria-label', `Highlighted text: ${text.substring(0, 50)}`);
-
-        // Calculate position relative to page
-        const left = rect.left - pageBounds.left;
-        const top = rect.top - pageBounds.top;
-
-        highlightDiv.style.left = left + 'px';
-        highlightDiv.style.top = top + 'px';
-        highlightDiv.style.width = rect.width + 'px';
-        highlightDiv.style.height = rect.height + 'px';
-
-        // Add icons (only on first rect to avoid clutter)
-        if (index === 0) {
-          // Note icon
-          const noteIcon = document.createElement('div');
-          noteIcon.className = 'pdf-highlight-note';
-          noteIcon.innerHTML = '📝';
-          noteIcon.setAttribute('aria-label', 'Add note to highlight');
-          noteIcon.addEventListener('click', (e) => {
-            e.stopPropagation();
-            e.preventDefault();
-            this.openAnnotationModal(highlightId, pageNum);
-          });
-          highlightDiv.appendChild(noteIcon);
-
-          // Trash icon
-          const trashIcon = document.createElement('div');
-          trashIcon.className = 'pdf-highlight-trash';
-          trashIcon.innerHTML = '🗑️';
-          trashIcon.setAttribute('aria-label', 'Delete highlight');
-          trashIcon.addEventListener('click', (e) => {
-            e.stopPropagation();
-            e.preventDefault();
-            this.removeHighlight(highlightId, pageNum);
-          });
-          highlightDiv.appendChild(trashIcon);
-        }
-
-        highlightLayer.appendChild(highlightDiv);
-
-        // Store rect data (normalized to page size)
-        highlightData.rects.push({
-          left: left / pageBounds.width,
-          top: top / pageBounds.height,
-          width: rect.width / pageBounds.width,
-          height: rect.height / pageBounds.height
-        });
+      // Store rect data
+      highlightData.rects.push({
+        left: left / pageBounds.width,
+        top: top / pageBounds.height,
+        width: rect.width / pageBounds.width,
+        height: rect.height / pageBounds.height
       });
+    });
 
-      this.highlights[pageNum].push(highlightData);
-      console.log(`✨ Created PDF highlight on page ${pageNum}`);
+    this.highlights[pageNum].push(highlightData);
+    console.log(`✨ Created PDF highlight on page ${pageNum}:`, {
+      id: highlightId,
+      text: text.substring(0, 50) + '...',
+      color: this.currentColor,
+      timestamp: timestamp
+    });
 
       await this.saveHighlights();
 
       window.getSelection().removeAllRanges();
-      this.showTempMessage('Highlight saved!', 'success');
+      this.showTempMessage('Highlight saved!', 'info');
     } catch (error) {
       console.error('❌ Error creating highlight:', error);
       this.showTempMessage('Failed to create highlight', 'error');
@@ -424,10 +335,9 @@ class PDFReader {
     this.highlights[pageNum].forEach(highlight => {
       highlight.rects.forEach((rect, index) => {
         const highlightDiv = document.createElement('div');
-        const highlightColor = highlight.color || 'yellow';
+        const highlightColor = highlight.color || 'yellow'; // Default to yellow if no color saved
         highlightDiv.className = `pdf-highlight ${highlightColor}`;
         highlightDiv.setAttribute('data-highlight-id', highlight.id);
-        highlightDiv.setAttribute('role', 'mark');
 
         highlightDiv.style.left = (rect.left * pageBounds.width) + 'px';
         highlightDiv.style.top = (rect.top * pageBounds.height) + 'px';
@@ -464,29 +374,37 @@ class PDFReader {
     });
   }
 
-  /**
-   * NEW: Save highlights using PDF fingerprint
-   */
   async saveHighlights() {
     try {
-      // Use fingerprint instead of URL for storage key
-      const key = `pdfHighlights_${this.pdfFingerprint}`;
+      const key = `pdfHighlights_${encodeURIComponent(this.pdfUrl)}`;
 
+      // Log what we're about to save
       const totalHighlights = Object.values(this.highlights).reduce((sum, pageHighlights) => sum + pageHighlights.length, 0);
-      console.log(`💾 Saving ${totalHighlights} highlights with key: ${key}`);
+      console.log(`💾 Saving ${totalHighlights} highlights for PDF: ${this.pdfUrl}`);
+      console.log(`📦 Storage key: ${key}`);
+      console.log(`📊 Highlight data:`, JSON.parse(JSON.stringify(this.highlights)));
 
       await chrome.storage.local.set({
         [key]: this.highlights
       });
 
-      // Also store a mapping of URL to fingerprint for migration
-      const mappingKey = `pdfUrlToFingerprint`;
-      const mapping = await chrome.storage.local.get(mappingKey) || {};
-      mapping[mappingKey] = mapping[mappingKey] || {};
-      mapping[mappingKey][this.pdfUrl] = this.pdfFingerprint;
-      await chrome.storage.local.set(mapping);
+      // Verify save
+      const verification = await chrome.storage.local.get(key);
+      if (verification[key]) {
+        const verifiedCount = Object.values(verification[key]).reduce((sum, pageHighlights) => sum + pageHighlights.length, 0);
+        console.log(`✅ Verification: ${verifiedCount} highlights confirmed in storage`);
 
-      console.log(`✅ Highlights saved successfully`);
+        // Deep verification - check if timestamps are there
+        Object.entries(verification[key]).forEach(([page, highlights]) => {
+          highlights.forEach(h => {
+            if (!h.timestamp) {
+              console.warn(`⚠️ Highlight ${h.id} on page ${page} is missing timestamp!`);
+            }
+          });
+        });
+      } else {
+        console.warn('⚠️ Verification failed: No data found in storage');
+      }
 
       // Update highlight counter
       this.updateHighlightCount();
@@ -504,12 +422,9 @@ class PDFReader {
     }
   }
 
-  /**
-   * NEW: Load highlights using fingerprint with fallback to URL
-   */
   async loadHighlights() {
     try {
-      const key = `pdfHighlights_${this.pdfFingerprint}`;
+      const key = `pdfHighlights_${encodeURIComponent(this.pdfUrl)}`;
       console.log('📥 Loading highlights with key:', key);
 
       const result = await chrome.storage.local.get([key]);
@@ -517,25 +432,13 @@ class PDFReader {
       if (result[key]) {
         this.highlights = result[key];
         const totalHighlights = Object.values(this.highlights).reduce((sum, pageHighlights) => sum + pageHighlights.length, 0);
-        console.log(`✅ Loaded ${totalHighlights} highlights`);
+        console.log(`✅ Loaded ${totalHighlights} highlights across ${Object.keys(this.highlights).length} pages`);
       } else {
-        // Try fallback to URL-based storage (for migration)
-        const oldKey = `pdfHighlights_${encodeURIComponent(this.pdfUrl)}`;
-        const oldResult = await chrome.storage.local.get([oldKey]);
-
-        if (oldResult[oldKey]) {
-          console.log('📦 Migrating highlights from URL-based storage');
-          this.highlights = oldResult[oldKey];
-          // Save with new fingerprint-based key
-          await this.saveHighlights();
-          // Remove old key
-          await chrome.storage.local.remove(oldKey);
-        } else {
-          console.log('📝 No existing highlights found');
-          this.highlights = {};
-        }
+        console.log('📝 No existing highlights found for this PDF');
+        this.highlights = {};
       }
 
+      // Update highlight counter
       this.updateHighlightCount();
     } catch (error) {
       console.error('❌ Failed to load highlights:', error);
@@ -628,85 +531,19 @@ class PDFReader {
       }
     });
 
-    // NEW: Zoom controls using CSS transforms
+    // Zoom controls
     document.getElementById('pdf-zoom-in').addEventListener('click', () => {
-      this.zoomIn();
+      this.scale += 0.25;
+      this.renderAllPages();
+      this.updateZoomLevel();
     });
 
     document.getElementById('pdf-zoom-out').addEventListener('click', () => {
-      this.zoomOut();
-    });
-
-    // Keyboard shortcuts
-    document.addEventListener('keydown', (e) => {
-      // Zoom shortcuts
-      if (e.ctrlKey || e.metaKey) {
-        if (e.key === '+' || e.key === '=') {
-          e.preventDefault();
-          this.zoomIn();
-        } else if (e.key === '-') {
-          e.preventDefault();
-          this.zoomOut();
-        } else if (e.key === '0') {
-          e.preventDefault();
-          this.resetZoom();
-        }
+      if (this.scale > 0.5) {
+        this.scale -= 0.25;
+        this.renderAllPages();
+        this.updateZoomLevel();
       }
-
-      // Page navigation
-      if (e.key === 'ArrowLeft' && !e.target.matches('input, textarea')) {
-        this.currentPage = Math.max(1, this.currentPage - 1);
-        this.scrollToPage(this.currentPage);
-      } else if (e.key === 'ArrowRight' && !e.target.matches('input, textarea')) {
-        this.currentPage = Math.min(this.totalPages, this.currentPage + 1);
-        this.scrollToPage(this.currentPage);
-      }
-    });
-  }
-
-  /**
-   * NEW: Zoom in using CSS transforms (no re-rendering!)
-   */
-  zoomIn() {
-    this.zoomLevel = Math.min(3.0, this.zoomLevel + 0.25);
-    this.applyZoom();
-    this.updateZoomLevel();
-    this.showTempMessage(`Zoom: ${Math.round(this.zoomLevel * 100)}%`, 'info');
-  }
-
-  /**
-   * NEW: Zoom out using CSS transforms
-   */
-  zoomOut() {
-    this.zoomLevel = Math.max(0.5, this.zoomLevel - 0.25);
-    this.applyZoom();
-    this.updateZoomLevel();
-    this.showTempMessage(`Zoom: ${Math.round(this.zoomLevel * 100)}%`, 'info');
-  }
-
-  /**
-   * NEW: Reset zoom to 100%
-   */
-  resetZoom() {
-    this.zoomLevel = 1.0;
-    this.applyZoom();
-    this.updateZoomLevel();
-    this.showTempMessage('Zoom reset to 100%', 'info');
-  }
-
-  /**
-   * NEW: Apply zoom using CSS transforms
-   * This is MUCH faster than re-rendering!
-   */
-  applyZoom() {
-    document.querySelectorAll('.pdf-page').forEach(pageDiv => {
-      pageDiv.classList.add('zooming');
-      pageDiv.style.transform = `scale(${this.zoomLevel})`;
-
-      // Remove animation class after transition
-      setTimeout(() => {
-        pageDiv.classList.remove('zooming');
-      }, 200);
     });
   }
 
@@ -724,7 +561,7 @@ class PDFReader {
   }
 
   updateZoomLevel() {
-    document.getElementById('pdf-zoom-level').textContent = `${Math.round(this.zoomLevel * 100)}%`;
+    document.getElementById('pdf-zoom-level').textContent = `${Math.round(this.scale * 100)}%`;
   }
 
   toggleTheme() {
@@ -735,12 +572,10 @@ class PDFReader {
     if (isLight) {
       body.classList.remove('light-theme');
       themeBtn.textContent = '🌙';
-      themeBtn.setAttribute('aria-pressed', 'false');
       chrome.storage.local.set({ pdfReaderTheme: 'dark' });
     } else {
       body.classList.add('light-theme');
       themeBtn.textContent = '☀️';
-      themeBtn.setAttribute('aria-pressed', 'true');
       chrome.storage.local.set({ pdfReaderTheme: 'light' });
     }
   }
@@ -750,16 +585,14 @@ class PDFReader {
     a.href = this.pdfUrl;
     a.download = this.pdfUrl.split('/').pop() || 'document.pdf';
     a.click();
-    this.showTempMessage('Downloading PDF...', 'info');
   }
 
-  showError(message, recoverable = false) {
+  showError(message) {
     const container = document.getElementById('pdf-canvas-container');
     container.innerHTML = `
-      <div class="error-message" role="alert">
-        <h3>⚠️ Error</h3>
+      <div class="error-message">
+        <h3>Error</h3>
         <p>${message}</p>
-        ${recoverable ? '<button class="pdf-btn" onclick="location.reload()">Retry</button>' : ''}
       </div>
     `;
   }
@@ -770,13 +603,23 @@ class PDFReader {
     if (!msgEl) {
       msgEl = document.createElement('div');
       msgEl.id = 'pdf-temp-message';
-      msgEl.setAttribute('role', 'status');
-      msgEl.setAttribute('aria-live', 'polite');
+      msgEl.style.cssText = `
+        position: fixed;
+        top: 80px;
+        right: 20px;
+        padding: 12px 20px;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 600;
+        z-index: 10000;
+        animation: slideIn 0.3s ease;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      `;
       document.body.appendChild(msgEl);
     }
 
     msgEl.textContent = message;
-    msgEl.style.background = type === 'error' ? '#ef4444' : type === 'success' ? '#10b981' : '#4f46e5';
+    msgEl.style.background = type === 'error' ? '#ef4444' : '#4f46e5';
     msgEl.style.color = 'white';
 
     // Auto-remove after 3 seconds
@@ -787,18 +630,11 @@ class PDFReader {
     }, 3000);
   }
 
-  /**
-   * NEW: Helper delay function
-   */
-  delay(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
-
-  // Remaining methods (search, annotation, export) remain unchanged...
-  // [Copy from original file - lines 633-783]
+  // New Features
 
   setHighlightColor(color) {
     this.currentColor = color;
+    // Update active state on color buttons
     document.querySelectorAll('.color-option').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.color === color);
     });
@@ -807,9 +643,7 @@ class PDFReader {
 
   toggleSearch() {
     const searchPanel = document.getElementById('pdf-search-panel');
-    const isVisible = searchPanel.style.display !== 'none';
-
-    if (!isVisible) {
+    if (searchPanel.style.display === 'none' || !searchPanel.style.display) {
       searchPanel.style.display = 'flex';
       document.getElementById('pdf-search-input').focus();
     } else {
@@ -831,6 +665,7 @@ class PDFReader {
     this.searchResults = [];
     const lowerQuery = query.toLowerCase();
 
+    // Search through all pages
     for (let pageNum = 1; pageNum <= this.totalPages; pageNum++) {
       const page = await this.pdfDoc.getPage(pageNum);
       const textContent = await page.getTextContent();
@@ -871,6 +706,7 @@ class PDFReader {
     const modal = document.getElementById('annotation-modal');
     const textarea = document.getElementById('annotation-text');
 
+    // Load existing note if any
     const highlight = this.highlights[pageNum]?.find(h => h.id === highlightId);
     if (highlight) {
       textarea.value = highlight.note || '';
@@ -890,13 +726,14 @@ class PDFReader {
   async saveAnnotation() {
     const note = document.getElementById('annotation-text').value.trim();
 
+    // Find the highlight and save the note
     for (let pageNum in this.highlights) {
       const highlight = this.highlights[pageNum].find(h => h.id === this.currentAnnotationId);
       if (highlight) {
         highlight.note = note;
         await this.saveHighlights();
         console.log('📝 Annotation saved');
-        this.showTempMessage(note ? 'Note saved!' : 'Note cleared', 'success');
+        this.showTempMessage(note ? 'Note saved!' : 'Note cleared', 'info');
         break;
       }
     }
@@ -911,6 +748,7 @@ class PDFReader {
     exportText += `Total Highlights: ${Object.values(this.highlights).flat().length}\n`;
     exportText += `\n${'='.repeat(60)}\n\n`;
 
+    // Group by page
     const sortedPages = Object.keys(this.highlights).sort((a, b) => parseInt(a) - parseInt(b));
 
     sortedPages.forEach(pageNum => {
@@ -931,16 +769,16 @@ class PDFReader {
       }
     });
 
+    // Download as text file
     const blob = new Blob([exportText], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `highlights-${this.pdfFingerprint}-${Date.now()}.txt`;
+    a.download = `highlights-${this.pdfUrl.split('/').pop().replace('.pdf', '')}-${Date.now()}.txt`;
     a.click();
     URL.revokeObjectURL(url);
 
     console.log('📤 Highlights exported');
-    this.showTempMessage('Highlights exported!', 'success');
   }
 }
 

@@ -1,8 +1,11 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Web Highlighter</title>
+  <link rel="stylesheet" href="design-tokens.css">
+  <link rel="stylesheet" href="components.css">
   <link rel="stylesheet" href="popup-minimal.css">
 </head>
 <body>
@@ -14,68 +17,68 @@
           <p>Highlight, organize, and sync</p>
         </div>
         <div class="header-actions">
-          <button class="icon-btn" id="header-manage-all" title="Manage All Highlights">
+          <button class="icon-btn" id="header-manage-all" title="Manage All Highlights" aria-label="Manage all highlights">
             📚
           </button>
-          <button class="icon-btn" id="header-reader-view" title="Reader View">
+          <button class="icon-btn" id="header-reader-view" title="Reader View" aria-label="Open reader view">
             📖
           </button>
-          <button class="icon-btn" id="header-video-transcript" title="Video Transcript">
+          <button class="icon-btn" id="header-video-transcript" title="Video Transcript" aria-label="Open video transcript viewer">
             🎬
           </button>
-          <button class="icon-btn" id="header-pdf-reader" title="PDF Reader">
+          <button class="icon-btn" id="header-pdf-reader" title="PDF Reader" aria-label="Open PDF reader and highlighter">
             📝
           </button>
         </div>
       </div>
     </header>
 
-    <nav class="tabs">
-      <button class="tab active" data-tab="highlights">Highlights</button>
-      <button class="tab" data-tab="manage">Manage</button>
-      <button class="tab" data-tab="settings">Settings</button>
+    <nav class="tabs" role="tablist" aria-label="Main navigation">
+      <button class="tab active" data-tab="highlights" role="tab" aria-selected="true" aria-controls="highlights">Highlights</button>
+      <button class="tab" data-tab="manage" role="tab" aria-selected="false" aria-controls="manage">Manage</button>
+      <button class="tab" data-tab="settings" role="tab" aria-selected="false" aria-controls="settings">Settings</button>
     </nav>
 
     <div class="content">
       <!-- Highlights Tab -->
-      <div id="highlights" class="tab-content active">
-        <div class="highlights-filter">
-          <button class="filter-toggle active" data-filter="current">This Page</button>
-          <button class="filter-toggle" data-filter="all">All Pages</button>
+      <div id="highlights" class="tab-content active" role="tabpanel" aria-labelledby="highlights-tab">
+        <div class="highlights-filter" role="group" aria-label="Filter highlights">
+          <button class="filter-toggle active" data-filter="current" aria-pressed="true">This Page</button>
+          <button class="filter-toggle" data-filter="all" aria-pressed="false">All Pages</button>
         </div>
-        <div id="highlights-list" class="highlights-container">
+        <div id="highlights-list" class="highlights-container" role="region" aria-live="polite" aria-label="Highlights list">
           <div class="loading">📝 Loading highlights...</div>
         </div>
       </div>
 
       <!-- Manage Tab -->
-      <div id="manage" class="tab-content">
-        <button id="manage-all" class="action-button primary">
+      <div id="manage" class="tab-content" role="tabpanel" aria-labelledby="manage-tab">
+        <button id="manage-all" class="action-button primary" aria-label="Open highlights manager">
           📚 Manage All Highlights
         </button>
-        <button id="reader-view-btn" class="action-button">
+        <button id="reader-view-btn" class="action-button" aria-label="Activate reader view for current page">
           📖 Reader View
         </button>
-        <button id="video-annotation-btn" class="action-button">
+        <button id="video-annotation-btn" class="action-button" aria-label="Open video transcript and annotation tool">
           🎬 Video Transcript
         </button>
-        <button id="pdf-reader-btn" class="action-button">
+        <button id="pdf-reader-btn" class="action-button" aria-label="Open PDF reader with highlighting support">
           📝 PDF Reader
         </button>
-        <button id="sync-now" class="action-button">
+        <button id="sync-now" class="action-button" aria-label="Synchronize highlights to Google Drive">
           🔄 Sync Now
         </button>
-        <button id="connect-drive" class="action-button">
+        <button id="connect-drive" class="action-button" aria-label="Connect to Google Drive for cloud sync">
           🔗 Connect Google Drive
         </button>
       </div>
 
       <!-- Settings Tab -->
-      <div id="settings" class="tab-content">
-        <button id="open-settings" class="action-button">
+      <div id="settings" class="tab-content" role="tabpanel" aria-labelledby="settings-tab">
+        <button id="open-settings" class="action-button" aria-label="Open extension settings page">
           ⚙️ Extension Settings
         </button>
-        <button id="help" class="action-button">
+        <button id="help" class="action-button" aria-label="Get help and support">
           ❓ Help & Support
         </button>
       </div>
