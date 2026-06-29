@@ -1,5 +1,21 @@
 // background.js - Service Worker for background operations
 
+// Load plugin system scripts at the top level of the service worker.
+// importScripts() must be called synchronously during SW evaluation in MV3 —
+// calling it from inside an async function is unreliable across Chrome versions.
+try {
+  importScripts(
+    'lib/plugin-interfaces.js',
+    'lib/plugin-registry.js',
+    'lib/plugin-loader.js',
+    'lib/mcp-client.js',
+    'lib/agent-orchestrator.js'
+  );
+  console.log('[SW] Plugin scripts loaded');
+} catch (e) {
+  console.warn('[SW] Could not load plugin scripts:', e.message);
+}
+
 // Analytics and usage tracking (privacy-first, local only)
 const analytics = {
   dailyStats: {},
@@ -1080,14 +1096,10 @@ let _agentOrchestrator = null;
 
 async function initPluginSystem() {
   try {
-    // Service workers can import scripts synchronously
-    importScripts(
-      'lib/plugin-interfaces.js',
-      'lib/plugin-registry.js',
-      'lib/plugin-loader.js',
-      'lib/mcp-client.js',
-      'lib/agent-orchestrator.js'
-    );
+    // Scripts are already loaded at the top level — just initialise them here.
+    if (typeof PluginRegistry === 'undefined') {
+      throw new Error('Plugin scripts not loaded — importScripts failed at SW start');
+    }
 
     const registry = PluginRegistry.getInstance();
     await registry.loadActiveSelections();

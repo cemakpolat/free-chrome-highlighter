@@ -90,17 +90,20 @@ async function loadHighlightsForAgent(agentName) {
   const all = [];
 
   for (const [key, val] of Object.entries(stored)) {
-    if ((key.startsWith('universal_highlighter_') || key.startsWith('highlights_')) && Array.isArray(val)) {
-      all.push(...val);
-    }
+    if (!key.startsWith('universal_highlighter_') && !key.startsWith('highlights_')) continue;
+    // Phase 1 stores { highlights: [], lastModified: ... }; plugin layer stores flat []
+    const arr = Array.isArray(val) ? val : (val?.highlights || []);
+    all.push(...arr.filter(h => h && h.text));
   }
 
   if (scope === 'page') {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true }).catch(() => [null]);
-    if (tab?.url) {
-      const domain = new URL(tab.url).hostname;
-      return all.filter(h => h.url?.includes(domain));
-    }
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (tab?.url) {
+        const domain = new URL(tab.url).hostname;
+        return all.filter(h => h.url?.includes(domain));
+      }
+    } catch { /* tabs API unavailable — fall through to all */ }
   }
 
   return all;
@@ -523,18 +526,23 @@ const HISTORY_META = {
 
 let _historyFilter = 'all';
 
-async function initHistoryView() {
-  // Bind filter tabs
-  document.querySelectorAll('.history-filter').forEach(btn => {
-    btn.onclick = () => {
-      document.querySelectorAll('.history-filter').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      _historyFilter = btn.dataset.type;
-      renderHistory();
-    };
-  });
+let _historyInited = false;
 
-  document.getElementById('historyClearBtn')?.addEventListener('click', clearHistory);
+async function initHistoryView() {
+  if (!_historyInited) {
+    _historyInited = true;
+
+    document.querySelectorAll('.history-filter').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.history-filter').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        _historyFilter = btn.dataset.type;
+        renderHistory();
+      });
+    });
+
+    document.getElementById('historyClearBtn')?.addEventListener('click', clearHistory);
+  }
   renderHistory();
 }
 

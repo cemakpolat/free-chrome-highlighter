@@ -192,7 +192,7 @@ class MinimalPopup {
 
   openSettings() {
     chrome.tabs.create({
-      url: chrome.runtime.getURL('options.html')
+      url: chrome.runtime.getURL('highlights-manager.html') + '#plugins'
     });
   }
 
@@ -331,7 +331,7 @@ class MinimalPopup {
 
   openHelp() {
     chrome.tabs.create({
-      url: 'https://github.com/your-repo/help'
+      url: 'https://github.com/cemakpolat/free-chrome-highlighter'
     });
   }
 
