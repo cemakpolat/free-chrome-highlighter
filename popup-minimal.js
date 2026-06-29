@@ -221,7 +221,7 @@ class MinimalPopup {
       }
     } catch (error) {
       console.error('🟢 Reader view error:', error);
-      alert('Could not activate reader view. Make sure you are on a regular webpage.');
+      this.showErrorMessage('Could not activate reader view. Make sure you are on a regular webpage.');
     }
   }
 
@@ -236,7 +236,7 @@ class MinimalPopup {
       }
     } catch (error) {
       console.error('🟢 Video annotation error:', error);
-      alert('Could not activate video annotation. Make sure there is a video on this page.');
+      this.showErrorMessage('Could not activate video annotation. Make sure there is a video on this page.');
     }
   }
 
@@ -264,12 +264,12 @@ class MinimalPopup {
           await chrome.tabs.create({ url: readerUrl });
           window.close();
         } else {
-          alert('This page is not a PDF. Please navigate to a PDF file first.');
+          this.showErrorMessage('This page is not a PDF. Please navigate to a PDF file first.');
         }
       }
     } catch (error) {
       console.error('🟢 PDF reader error:', error);
-      alert('Could not open PDF reader. Make sure you are on a PDF page.');
+      this.showErrorMessage('Could not open PDF reader. Make sure you are on a PDF page.');
     }
   }
 

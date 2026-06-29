@@ -1219,7 +1219,7 @@ class HighlightManager {
 
     } catch (error) {
       console.error('Error deleting highlight:', error);
-      alert('Failed to delete highlight');
+      this.showErrorMessage('Failed to delete highlight');
     }
   }
 
@@ -1397,7 +1397,7 @@ ${h.note ? `*Note: ${h.note}*\n` : ''}
 
   async generateAISummary() {
     if (!this.selectedPage) {
-      alert('Please select a page to generate a summary for.');
+      this.showErrorMessage('Please select a page to generate a summary for.');
       return;
     }
 
@@ -1406,7 +1406,7 @@ ${h.note ? `*Note: ${h.note}*\n` : ''}
     );
 
     if (pageHighlights.length === 0) {
-      alert('No highlights found for this page. Please add some highlights first.');
+      this.showErrorMessage('No highlights found for this page. Please add some highlights first.');
       return;
     }
 
@@ -1502,7 +1502,7 @@ ${h.note ? `*Note: ${h.note}*\n` : ''}
 
   async copySummaryToClipboard() {
     if (!this.currentSummary) {
-      alert('No summary to copy');
+      this.showErrorMessage('No summary to copy');
       return;
     }
 
@@ -1520,7 +1520,7 @@ ${h.note ? `*Note: ${h.note}*\n` : ''}
       selection.removeAllRanges();
       selection.addRange(range);
 
-      alert('Summary text selected. Please press Ctrl+C (or Cmd+C) to copy.');
+      this.showSuccessMessage('Summary selected — press Ctrl+C (or Cmd+C) to copy.');
     }
   }
 
@@ -1622,7 +1622,7 @@ ${h.note ? `*Note: ${h.note}*\n` : ''}
 
   exportSummary() {
     if (!this.currentSummary) {
-      alert('No summary to export');
+      this.showErrorMessage('No summary to export');
       return;
     }
 

@@ -1050,21 +1050,50 @@ class HighlighterService extends IHighlighter {
    */
   async editHighlightNote(highlight) {
     const currentNote = highlight.note || '';
-    const newNote = prompt('Add or edit note:', currentNote);
-    
-    if (newNote !== null) {
-      highlight.note = newNote;
-      await this.updateHighlight(highlight);
-      
-      // Update tooltip
-      const element = document.querySelector(`[data-highlight-id="${highlight.id}"]`);
-      if (element) {
-        element.title = `Highlighted on ${new Date(highlight.timestamp).toLocaleDateString()}`;
-        if (highlight.note) {
-          element.title += `\nNote: ${highlight.note}`;
+
+    await new Promise((resolve) => {
+      const overlay = document.createElement('div');
+      overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:10002;display:flex;align-items:center;justify-content:center;';
+
+      const box = document.createElement('div');
+      box.style.cssText = 'background:#fff;border-radius:8px;padding:20px;width:340px;box-shadow:0 8px 32px rgba(0,0,0,0.2);font-family:system-ui,sans-serif;';
+      box.innerHTML = `
+        <div style="font-weight:600;font-size:14px;margin-bottom:10px;color:#111;">Edit Note</div>
+        <textarea id="_hl_note_input" rows="4" style="width:100%;box-sizing:border-box;border:1px solid #d0d0d0;border-radius:5px;padding:8px;font-size:13px;resize:vertical;outline:none;">${this.escapeHtml(currentNote)}</textarea>
+        <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end;">
+          <button id="_hl_note_cancel" style="padding:6px 14px;border:1px solid #d0d0d0;border-radius:5px;background:#fff;cursor:pointer;font-size:13px;">Cancel</button>
+          <button id="_hl_note_save" style="padding:6px 14px;border:none;border-radius:5px;background:#2563eb;color:#fff;cursor:pointer;font-size:13px;font-weight:500;">Save</button>
+        </div>
+      `;
+      overlay.appendChild(box);
+      document.body.appendChild(overlay);
+
+      const input = box.querySelector('#_hl_note_input');
+      input.focus();
+      input.setSelectionRange(input.value.length, input.value.length);
+
+      const close = async (save) => {
+        overlay.remove();
+        if (save) {
+          highlight.note = input.value.trim();
+          await this.updateHighlight(highlight);
+          const el = document.querySelector(`[data-highlight-id="${highlight.id}"]`);
+          if (el) {
+            el.title = `Highlighted on ${new Date(highlight.timestamp).toLocaleDateString()}`;
+            if (highlight.note) el.title += `\nNote: ${highlight.note}`;
+          }
         }
-      }
-    }
+        resolve();
+      };
+
+      box.querySelector('#_hl_note_save').addEventListener('click', () => close(true));
+      box.querySelector('#_hl_note_cancel').addEventListener('click', () => close(false));
+      overlay.addEventListener('click', (e) => { if (e.target === overlay) close(false); });
+      box.querySelector('#_hl_note_input').addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') close(false);
+        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) close(true);
+      });
+    });
   }
 
   /**
@@ -1136,13 +1165,47 @@ class HighlighterService extends IHighlighter {
    * Edit highlight tags
    */
   async editHighlightTags(highlight) {
-    const currentTags = highlight.tags.join(', ');
-    const newTags = prompt('Enter tags (comma-separated):', currentTags);
-    
-    if (newTags !== null) {
-      highlight.tags = newTags.split(',').map(tag => tag.trim()).filter(tag => tag);
-      await this.updateHighlight(highlight);
-    }
+    const currentTags = (highlight.tags || []).join(', ');
+
+    await new Promise((resolve) => {
+      const overlay = document.createElement('div');
+      overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:10002;display:flex;align-items:center;justify-content:center;';
+
+      const box = document.createElement('div');
+      box.style.cssText = 'background:#fff;border-radius:8px;padding:20px;width:320px;box-shadow:0 8px 32px rgba(0,0,0,0.2);font-family:system-ui,sans-serif;';
+      box.innerHTML = `
+        <div style="font-weight:600;font-size:14px;margin-bottom:6px;color:#111;">Edit Tags</div>
+        <div style="font-size:12px;color:#666;margin-bottom:10px;">Comma-separated, e.g. research, key, question</div>
+        <input id="_hl_tags_input" type="text" value="${this.escapeHtml(currentTags)}" style="width:100%;box-sizing:border-box;border:1px solid #d0d0d0;border-radius:5px;padding:8px;font-size:13px;outline:none;">
+        <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end;">
+          <button id="_hl_tags_cancel" style="padding:6px 14px;border:1px solid #d0d0d0;border-radius:5px;background:#fff;cursor:pointer;font-size:13px;">Cancel</button>
+          <button id="_hl_tags_save" style="padding:6px 14px;border:none;border-radius:5px;background:#2563eb;color:#fff;cursor:pointer;font-size:13px;font-weight:500;">Save</button>
+        </div>
+      `;
+      overlay.appendChild(box);
+      document.body.appendChild(overlay);
+
+      const input = box.querySelector('#_hl_tags_input');
+      input.focus();
+      input.select();
+
+      const close = async (save) => {
+        overlay.remove();
+        if (save) {
+          highlight.tags = input.value.split(',').map(t => t.trim()).filter(Boolean);
+          await this.updateHighlight(highlight);
+        }
+        resolve();
+      };
+
+      box.querySelector('#_hl_tags_save').addEventListener('click', () => close(true));
+      box.querySelector('#_hl_tags_cancel').addEventListener('click', () => close(false));
+      overlay.addEventListener('click', (e) => { if (e.target === overlay) close(false); });
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') close(false);
+        if (e.key === 'Enter') close(true);
+      });
+    });
   }
 
   /**

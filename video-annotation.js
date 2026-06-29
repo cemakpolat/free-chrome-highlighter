@@ -708,6 +708,8 @@ Second line of subtitle</pre>
 
     document.getElementById('transcript-submit').addEventListener('click', () => {
       const input = document.getElementById('transcript-input').value;
+      const existing = modal.querySelector('.transcript-parse-error');
+      if (existing) existing.remove();
       try {
         this.transcript = this.parseTranscriptFormat(input);
         modal.remove();
@@ -715,7 +717,12 @@ Second line of subtitle</pre>
         this.isActive = true;
         this.startSync();
       } catch (error) {
-        alert('Failed to parse transcript: ' + error.message);
+        const errEl = document.createElement('div');
+        errEl.className = 'transcript-parse-error';
+        errEl.style.cssText = 'color:#c0392b;font-size:12px;margin-top:8px;padding:6px 10px;background:#fdf0ef;border-radius:4px;border:1px solid #e8a49a;';
+        errEl.textContent = 'Failed to parse transcript: ' + error.message;
+        modal.querySelector('.transcript-input-wrapper, .modal-body, div')
+          .appendChild(errEl);
       }
     });
   }
