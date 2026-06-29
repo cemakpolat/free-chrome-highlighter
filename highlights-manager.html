@@ -12,6 +12,15 @@
     <p>Organize and explore your highlighted content</p>
   </div>
 
+  <!-- Top navigation tabs -->
+  <nav class="page-tabs" role="tablist">
+    <button class="page-tab active" data-view="highlights" role="tab">Highlights</button>
+    <button class="page-tab" data-view="agents" role="tab">AI Agents</button>
+    <button class="page-tab" data-view="plugins" role="tab">Plugins</button>
+  </nav>
+
+  <!-- ── Highlights View ────────────────────────────────────────── -->
+  <div id="view-highlights" class="page-view active">
   <div class="container">
     <!-- Controls Section -->
     <div class="controls">
@@ -117,6 +126,158 @@
     </div>
   </div>
 
+  </div><!-- /view-highlights -->
+
+  <!-- ── AI Agents View ─────────────────────────────────────────── -->
+  <div id="view-agents" class="page-view agents-view">
+    <div class="agents-layout">
+
+      <!-- Left: agent picker -->
+      <aside class="agents-sidebar">
+        <h2 class="agents-sidebar-title">Agents</h2>
+
+        <button class="agent-card active" data-agent="research">
+          <div class="agent-icon">🔬</div>
+          <div class="agent-info">
+            <div class="agent-name">Research</div>
+            <div class="agent-desc">Find papers, extract concepts, build a brief</div>
+          </div>
+        </button>
+
+        <button class="agent-card" data-agent="writing">
+          <div class="agent-icon">✍️</div>
+          <div class="agent-info">
+            <div class="agent-name">Writing</div>
+            <div class="agent-desc">Outline, argument map, citations, draft</div>
+          </div>
+        </button>
+
+        <button class="agent-card" data-agent="learning">
+          <div class="agent-icon">🧠</div>
+          <div class="agent-info">
+            <div class="agent-name">Learning</div>
+            <div class="agent-desc">Flashcards, quiz, spaced repetition</div>
+          </div>
+        </button>
+
+        <div class="agents-sidebar-footer">
+          <div class="plugin-status-chip" id="aiPluginChip">AI: extractive</div>
+        </div>
+      </aside>
+
+      <!-- Right: agent workspace -->
+      <main class="agents-main">
+
+        <!-- Research config -->
+        <div class="agent-config" id="config-research">
+          <h3>Research Brief</h3>
+          <p class="agent-config-desc">Select highlights below, ask a question, and get a brief with related academic papers.</p>
+          <div class="agent-form">
+            <label class="agent-label">Research question <span class="optional">(optional)</span></label>
+            <input class="agent-input" id="research-query" type="text" placeholder="e.g. What are the main arguments about climate feedback loops?">
+            <label class="agent-label" style="margin-top:12px;">Highlight scope</label>
+            <div class="scope-row">
+              <select class="agent-select" id="research-scope">
+                <option value="page">Current page highlights</option>
+                <option value="all">All highlights</option>
+              </select>
+              <label class="toggle-label"><input type="checkbox" id="research-papers" checked> Include related papers</label>
+            </div>
+          </div>
+          <button class="run-agent-btn" data-agent="research">Run Research Agent</button>
+        </div>
+
+        <!-- Writing config -->
+        <div class="agent-config hidden" id="config-writing">
+          <h3>Writing Assistant</h3>
+          <p class="agent-config-desc">Turn your highlights into structured writing output.</p>
+          <div class="agent-form">
+            <label class="agent-label">Title <span class="optional">(optional)</span></label>
+            <input class="agent-input" id="writing-title" type="text" placeholder="e.g. My essay on renewable energy">
+            <label class="agent-label" style="margin-top:12px;">Output format</label>
+            <div class="format-chips" id="writing-format-chips">
+              <button class="format-chip active" data-format="outline">Outline</button>
+              <button class="format-chip" data-format="argument-map">Argument Map</button>
+              <button class="format-chip" data-format="citations">Citations</button>
+              <button class="format-chip" data-format="draft">Draft</button>
+            </div>
+            <label class="agent-label" style="margin-top:12px;">Highlight scope</label>
+            <select class="agent-select" id="writing-scope">
+              <option value="page">Current page highlights</option>
+              <option value="all">All highlights</option>
+            </select>
+          </div>
+          <button class="run-agent-btn" data-agent="writing">Run Writing Agent</button>
+        </div>
+
+        <!-- Learning config -->
+        <div class="agent-config hidden" id="config-learning">
+          <h3>Learning Tools</h3>
+          <p class="agent-config-desc">Convert highlights into study materials.</p>
+          <div class="agent-form">
+            <label class="agent-label">Format</label>
+            <div class="format-chips" id="learning-format-chips">
+              <button class="format-chip active" data-format="flashcards">Flashcards</button>
+              <button class="format-chip" data-format="quiz">Quiz</button>
+              <button class="format-chip" data-format="study-plan">Study Plan</button>
+            </div>
+            <label class="agent-label" style="margin-top:12px;">Difficulty <span class="optional">(quiz only)</span></label>
+            <div class="format-chips" id="difficulty-chips">
+              <button class="format-chip active" data-difficulty="medium">Medium</button>
+              <button class="format-chip" data-difficulty="easy">Easy</button>
+              <button class="format-chip" data-difficulty="hard">Hard</button>
+            </div>
+            <label class="agent-label" style="margin-top:12px;">Highlight scope</label>
+            <select class="agent-select" id="learning-scope">
+              <option value="page">Current page highlights</option>
+              <option value="all">All highlights</option>
+            </select>
+          </div>
+          <button class="run-agent-btn" data-agent="learning">Run Learning Agent</button>
+        </div>
+
+        <!-- Progress / result area -->
+        <div class="agent-result-area" id="agentResultArea">
+          <div class="agent-idle-state">
+            <div class="agent-idle-icon">✨</div>
+            <p>Configure an agent above and click Run to get started.</p>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div><!-- /view-agents -->
+
+  <!-- ── Plugins View ───────────────────────────────────────────── -->
+  <div id="view-plugins" class="page-view plugins-view">
+    <div class="plugins-layout">
+
+      <div class="plugins-section">
+        <h3 class="plugins-section-title">Storage Provider</h3>
+        <p class="plugins-section-desc">Where your highlights are saved.</p>
+        <div class="plugin-list" id="plugin-list-storage">
+          <div class="plugin-loading">Loading...</div>
+        </div>
+      </div>
+
+      <div class="plugins-section">
+        <h3 class="plugins-section-title">AI Provider</h3>
+        <p class="plugins-section-desc">Powers summaries, agents, and concept extraction.</p>
+        <div class="plugin-list" id="plugin-list-ai">
+          <div class="plugin-loading">Loading...</div>
+        </div>
+      </div>
+
+      <div class="plugins-section">
+        <h3 class="plugins-section-title">Tools</h3>
+        <p class="plugins-section-desc">Extra actions — share to Slack, search papers, copy to clipboard.</p>
+        <div class="plugin-list" id="plugin-list-tool">
+          <div class="plugin-loading">Loading...</div>
+        </div>
+      </div>
+
+    </div>
+  </div><!-- /view-plugins -->
+
   <!-- Export Modal -->
   <div class="modal-overlay" id="exportModal">
     <div class="export-modal">
@@ -212,5 +373,6 @@
   <script src="ai-summary-service.js"></script>
   <script src="tts-service.js"></script>
   <script src="highlights-manager.js"></script>
+  <script src="highlights-manager-agents.js"></script>
 </body>
 </html>

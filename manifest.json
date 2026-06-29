@@ -18,6 +18,11 @@
   
   "host_permissions": [
     "https://www.googleapis.com/*",
+    "https://api.notion.com/*",
+    "https://api.semanticscholar.org/*",
+    "https://api.anthropic.com/*",
+    "https://api-inference.huggingface.co/*",
+    "http://localhost/*",
     "https://www.youtube.com/*"
   ],
   
@@ -67,7 +72,11 @@
         "pdf-reader.html",
         "pdf-reader.js",
         "lib/pdf.min.js",
-        "lib/pdf.worker.min.js"
+        "lib/pdf.worker.min.js",
+        "lib/plugin-interfaces.js",
+        "lib/plugin-registry.js",
+        "lib/plugin-loader.js",
+        "lib/agent-orchestrator.js"
       ],
       "matches": ["<all_urls>"]
     }

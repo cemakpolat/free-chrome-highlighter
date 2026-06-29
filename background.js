@@ -694,6 +694,24 @@ async function handleBackgroundMessage(request, sender, sendResponse) {
         sendResponse({ success: true });
         break;
 
+      case 'agent:run':
+        await handleAgentMessage(request, sendResponse);
+        break;
+
+      case 'agent:list':
+        if (_agentOrchestrator) {
+          sendResponse({ success: true, result: _agentOrchestrator.list() });
+        } else {
+          sendResponse({ success: false, error: 'Plugin system not initialized' });
+        }
+        break;
+
+      case 'plugin:list':
+      case 'plugin:setActive':
+      case 'plugin:summary':
+        await handlePluginMessage(request, sendResponse);
+        break;
+
       default:
         sendResponse({ success: false, error: 'Unknown action' });
     }
@@ -973,6 +991,88 @@ async function getAllHighlightsFromDrive() {
   }
 }
 
+// ─── Plugin System Bootstrap ──────────────────────────────────────────────────
+//
+// The plugin system runs in the service worker so all contexts (popup, agents,
+// content scripts via messaging) share one authoritative registry.
+//
+// We import the files dynamically instead of importScripts() so errors are
+// scoped and the rest of the background still starts if a plugin fails.
+
+let _pluginRegistry = null;
+let _agentOrchestrator = null;
+
+async function initPluginSystem() {
+  try {
+    // Service workers can import scripts synchronously
+    importScripts(
+      'lib/plugin-interfaces.js',
+      'lib/plugin-registry.js',
+      'lib/plugin-loader.js',
+      'lib/agent-orchestrator.js'
+    );
+
+    const registry = PluginRegistry.getInstance();
+    await registry.loadActiveSelections();
+
+    const loader = new PluginLoader(registry);
+    await loader.init();
+
+    const orchestrator = new AgentOrchestrator(registry);
+    orchestrator.register('research', ResearchAgent);
+    orchestrator.register('writing', WritingAgent);
+    orchestrator.register('learning', LearningAgent);
+
+    _pluginRegistry = registry;
+    _agentOrchestrator = orchestrator;
+
+    console.log('[Plugins] System ready:', registry.getSummary());
+  } catch (err) {
+    console.warn('[Plugins] Could not initialize plugin system:', err.message);
+  }
+}
+
+// Handle agent run requests from popup / highlights-manager
+async function handleAgentMessage(request, sendResponse) {
+  if (!_agentOrchestrator) {
+    sendResponse({ success: false, error: 'Plugin system not initialized' });
+    return;
+  }
+
+  const { agentName, context, options } = request;
+  try {
+    const result = await _agentOrchestrator.run(agentName, context, options);
+    sendResponse({ success: true, result });
+  } catch (err) {
+    sendResponse({ success: false, error: err.message });
+  }
+}
+
+async function handlePluginMessage(request, sendResponse) {
+  if (!_pluginRegistry) {
+    sendResponse({ success: false, error: 'Plugin system not initialized' });
+    return;
+  }
+
+  const { action } = request;
+
+  if (action === 'plugin:list') {
+    sendResponse({ success: true, result: _pluginRegistry.listAll() });
+  } else if (action === 'plugin:setActive') {
+    try {
+      await _pluginRegistry.setActive(request.category, request.id);
+      sendResponse({ success: true });
+    } catch (err) {
+      sendResponse({ success: false, error: err.message });
+    }
+  } else if (action === 'plugin:summary') {
+    sendResponse({ success: true, result: _pluginRegistry.getSummary() });
+  } else {
+    sendResponse({ success: false, error: `Unknown plugin action: ${action}` });
+  }
+}
+
+
 // Initialize background script
 (async function init() {
   try {
@@ -986,7 +1086,10 @@ async function getAllHighlightsFromDrive() {
       analytics.dailyStats = stored.dailyStats;
     }
 
-    console.log('🌟 Universal Web Highlighter background script initialized');
+    // Initialize plugin system (non-blocking — failure is logged, not fatal)
+    initPluginSystem().catch(err => console.warn('[Plugins] Init error:', err.message));
+
+    console.log('Universal Web Highlighter background script initialized');
   } catch (error) {
     console.error('Background script initialization error:', error);
   }

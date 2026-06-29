@@ -28,6 +28,14 @@ class HighlightManager {
     // this.populateCategoryFilter(); // removed - categories no longer used
     this.updateStats();
     this.renderPages();
+    this._handleHashNavigation();
+  }
+
+  _handleHashNavigation() {
+    const hash = window.location.hash.replace('#', '');
+    if (!hash) return;
+    const tab = document.querySelector(`.page-tab[data-view="${hash}"]`);
+    if (tab) tab.click();
   }
 
   setupEventListeners() {

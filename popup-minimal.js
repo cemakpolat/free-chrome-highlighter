@@ -13,6 +13,7 @@ class MinimalPopup {
     this.setupTabs();
     this.setupButtons();
     this.setupFilters();
+    this.setupAITab();
     this.checkGoogleDriveStatus();
     this.loadHighlights();
 
@@ -505,6 +506,43 @@ class MinimalPopup {
       console.error('🟢 Error deleting from storage:', error);
       return false;
     }
+  }
+  setupAITab() {
+    // Agent quick-launch buttons → open manager on the agents tab
+    document.querySelectorAll('.ai-agent-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        chrome.tabs.create({ url: chrome.runtime.getURL('highlights-manager.html') + '#agents' });
+        window.close();
+      });
+    });
+
+    document.getElementById('openAgentsManager')?.addEventListener('click', () => {
+      chrome.tabs.create({ url: chrome.runtime.getURL('highlights-manager.html') + '#agents' });
+      window.close();
+    });
+
+    // Show current AI plugin status
+    chrome.runtime.sendMessage({ action: 'plugin:summary' })
+      .then(resp => {
+        const dot = document.getElementById('aiStatusDot');
+        const label = document.getElementById('aiStatusLabel');
+        if (!dot || !label) return;
+
+        if (resp?.success) {
+          const ai = resp.result.active.ai || 'none';
+          dot.classList.add('ready');
+          label.textContent = `AI: ${ai}`;
+        } else {
+          dot.classList.add('unavailable');
+          label.textContent = 'Plugin system loading...';
+        }
+      })
+      .catch(() => {
+        const dot = document.getElementById('aiStatusDot');
+        const label = document.getElementById('aiStatusLabel');
+        if (dot) dot.classList.add('unavailable');
+        if (label) label.textContent = 'Offline (extractive only)';
+      });
   }
 }
 
