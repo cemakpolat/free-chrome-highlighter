@@ -27,8 +27,37 @@ class Highlight {
     this.lastReviewed = data.lastReviewed || null;
     this.nextReview = data.nextReview || null;
 
+    // Auto-detect highlight type from text patterns
+    this.type = data.type || this.detectType(this.text);
+    this.isLost = data.isLost || false;
+    this.lastAttemptedRestore = data.lastAttemptedRestore || null;
+
     console.log('Final color assigned:', this.color);
+    console.log('Detected type:', this.type);
     console.log('=== HIGHLIGHT CONSTRUCTOR COMPLETE ===');
+  }
+
+  /**
+   * Auto-detect highlight type from text patterns
+   */
+  detectType(text) {
+    if (!text) return 'default';
+
+    const patterns = {
+      definition: /\b(is|are|means?|defined as|refers to|known as|called|represents?)\b/i,
+      evidence: /\b(shows?|proves?|demonstrates?|evidence|fact|data|study|research|found|shows?|indicates?|reveals?)\b/i,
+      question: /\b(why|how|what|when|where|which|does|is|are|can|will|should)\?|question|wondering|unclear|confused|ask/i,
+      action: /\b(TODO|FIXME|must|should|need to|required|important|urgent|action|do|must|implement|fix|update|change)\b/i,
+      key: /\b(key|crucial|critical|essential|important|main|primary|fundamental|major|significant|breakthrough|discovery)\b/i
+    };
+
+    for (const [type, pattern] of Object.entries(patterns)) {
+      if (pattern.test(text)) {
+        return type;
+      }
+    }
+
+    return 'default';
   }
 
   generateId() {
@@ -51,7 +80,10 @@ class Highlight {
       importance: this.importance,
       reviewCount: this.reviewCount,
       lastReviewed: this.lastReviewed,
-      nextReview: this.nextReview
+      nextReview: this.nextReview,
+      type: this.type,
+      isLost: this.isLost,
+      lastAttemptedRestore: this.lastAttemptedRestore
     };
   }
 
