@@ -1269,6 +1269,11 @@ class HighlightManager {
         filename = 'highlights.md';
         mimeType = 'text/markdown';
         break;
+      case 'csv':
+        content = this.generateCSV();
+        filename = 'highlights.csv';
+        mimeType = 'text/csv';
+        break;
       case 'pdf':
         this.generatePDF();
         return; // PDF generation handles its own download
@@ -1332,6 +1337,23 @@ class HighlightManager {
 </body>
 </html>
     `;
+  }
+
+  generateCSV() {
+    const headers = ['text', 'note', 'color', 'type', 'tags', 'url', 'title', 'domain', 'date'];
+    const escape = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const rows = this.filteredHighlights.map(h => [
+      escape(h.text),
+      escape(h.note || ''),
+      escape(h.color || ''),
+      escape(h.type || ''),
+      escape((h.tags || []).join('; ')),
+      escape(h.url || ''),
+      escape(h.title || ''),
+      escape(h.domain || ''),
+      escape(this.formatDate(h.timestamp))
+    ].join(','));
+    return [headers.join(','), ...rows].join('\r\n');
   }
 
   generateMarkdown() {

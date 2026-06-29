@@ -234,6 +234,17 @@
               }
               break;
 
+            case 'triggerHighlight': {
+              const sel = window.getSelection();
+              if (sel && sel.toString().trim()) {
+                highlighter.createHighlight(sel);
+                sendResponse({ success: true });
+              } else {
+                sendResponse({ success: false, error: 'No text selected' });
+              }
+              break;
+            }
+
             case 'toggleHighlightMode':
               toggleHighlightMode();
               sendResponse({ success: true });

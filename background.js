@@ -1208,6 +1208,17 @@ async function handlePluginMessage(request, sendResponse) {
 }
 
 
+// ── Keyboard command handler ──────────────────────────────────────────────────
+chrome.commands.onCommand.addListener(async (command) => {
+  if (command === 'highlight-selection') {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab?.id) return;
+    chrome.tabs.sendMessage(tab.id, { action: 'triggerHighlight' }).catch(() => {});
+  } else if (command === 'open-manager') {
+    chrome.tabs.create({ url: chrome.runtime.getURL('highlights-manager.html') });
+  }
+});
+
 // Initialize background script
 (async function init() {
   try {

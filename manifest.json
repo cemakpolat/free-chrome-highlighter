@@ -56,6 +56,23 @@
   },
 
   "options_page": "highlights-manager.html",
+
+  "commands": {
+    "highlight-selection": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+H",
+        "mac": "Command+Shift+H"
+      },
+      "description": "Highlight selected text on page"
+    },
+    "open-manager": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+Y",
+        "mac": "Command+Shift+Y"
+      },
+      "description": "Open highlights manager"
+    }
+  },
   
   "icons": {
     "16": "icons/icon-16.png",
