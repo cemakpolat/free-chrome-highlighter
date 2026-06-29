@@ -39,6 +39,9 @@ class MinimalPopup {
     this.setupButton('header-video-transcript', () => this.activateVideoAnnotation());
     this.setupButton('header-pdf-reader', () => this.openPDFReader());
 
+    // AI tab buttons
+    this.setupButton('summarizePageBtn', () => this.summarizePage());
+
     // Manage tab buttons (keep existing)
     this.setupButton('manage-all', () => this.openManager());
     this.setupButton('reader-view-btn', () => this.activateReaderView());
@@ -188,6 +191,35 @@ class MinimalPopup {
     chrome.tabs.create({
       url: chrome.runtime.getURL('highlights-manager.html')
     });
+  }
+
+  async summarizePage() {
+    try {
+      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!tabs[0]) {
+        this.showErrorMessage('No active page found');
+        return;
+      }
+
+      const currentUrl = tabs[0].url;
+      const domain = new URL(currentUrl).hostname;
+
+      // Open manager with hash to indicate summary mode
+      chrome.tabs.create({
+        url: chrome.runtime.getURL('highlights-manager.html') + '#summarize-' + encodeURIComponent(domain)
+      }, (tab) => {
+        // Send message to the newly opened tab to trigger auto-summary
+        setTimeout(() => {
+          chrome.tabs.sendMessage(tab.id, {
+            action: 'auto-summarize-domain',
+            domain: domain
+          }).catch(() => {});
+        }, 500);
+      });
+    } catch (error) {
+      console.error('Error summarizing page:', error);
+      this.showErrorMessage('Could not summarize page');
+    }
   }
 
   openSettings() {

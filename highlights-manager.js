@@ -24,6 +24,7 @@ class HighlightManager {
 
     this.setupEventListeners();
     this.setupDeleteModal();
+    this.setupMessageListener();
     await this.loadHighlights();
     // this.populateCategoryFilter(); // removed - categories no longer used
     this.updateStats();
@@ -127,6 +128,43 @@ class HighlightManager {
         }
       }
     });
+  }
+
+  setupMessageListener() {
+    chrome.runtime.onMessage?.addListener?.((request, sender, sendResponse) => {
+      if (request.action === 'auto-summarize-domain') {
+        this.autoSummarizeDomain(request.domain);
+      }
+    });
+  }
+
+  async autoSummarizeDomain(domain) {
+    try {
+      // Wait for highlights to be loaded
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Find the page with this domain
+      const page = this.pages.find(p => new URL(p.url).hostname === domain);
+      if (!page) {
+        console.warn('Page with domain not found:', domain);
+        return;
+      }
+
+      // Select this page
+      this.selectedPage = page;
+      this.applyFilters();
+
+      // Scroll to summary section
+      setTimeout(() => {
+        const summaryBtn = document.getElementById('generateSummaryBtn');
+        if (summaryBtn) {
+          summaryBtn.click();
+          summaryBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 500);
+    } catch (error) {
+      console.error('Error auto-summarizing:', error);
+    }
   }
 
   async loadHighlights() {
