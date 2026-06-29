@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Universal Web Highlighter",
-  "version": "1.0.0",
-  "description": "Free web highlighter with Google Drive sync - highlight, save, and access your research from anywhere",
+  "version": "2.0.0",
+  "description": "Free web highlighter with AI agents, plugin-based integrations, and MCP support — the open alternative to Web Highlights",
   
   "permissions": [
     "storage",
@@ -18,6 +18,11 @@
   
   "host_permissions": [
     "https://www.googleapis.com/*",
+    "https://api.notion.com/*",
+    "https://api.semanticscholar.org/*",
+    "https://api.anthropic.com/*",
+    "https://api-inference.huggingface.co/*",
+    "http://localhost/*",
     "https://www.youtube.com/*"
   ],
   
@@ -51,6 +56,23 @@
   },
 
   "options_page": "highlights-manager.html",
+
+  "commands": {
+    "highlight-selection": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+H",
+        "mac": "Command+Shift+H"
+      },
+      "description": "Highlight selected text on page"
+    },
+    "open-manager": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+Y",
+        "mac": "Command+Shift+Y"
+      },
+      "description": "Open highlights manager"
+    }
+  },
   
   "icons": {
     "16": "icons/icon-16.png",
@@ -67,7 +89,13 @@
         "pdf-reader.html",
         "pdf-reader.js",
         "lib/pdf.min.js",
-        "lib/pdf.worker.min.js"
+        "lib/pdf.worker.min.js",
+        "lib/plugin-interfaces.js",
+        "lib/plugin-registry.js",
+        "lib/plugin-loader.js",
+        "lib/mcp-client.js",
+        "lib/agent-orchestrator.js",
+        "highlights-manager-agents.js"
       ],
       "matches": ["<all_urls>"]
     }

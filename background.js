@@ -1,5 +1,21 @@
 // background.js - Service Worker for background operations
 
+// Load plugin system scripts at the top level of the service worker.
+// importScripts() must be called synchronously during SW evaluation in MV3 —
+// calling it from inside an async function is unreliable across Chrome versions.
+try {
+  importScripts(
+    'lib/plugin-interfaces.js',
+    'lib/plugin-registry.js',
+    'lib/plugin-loader.js',
+    'lib/mcp-client.js',
+    'lib/agent-orchestrator.js'
+  );
+  console.log('[SW] Plugin scripts loaded');
+} catch (e) {
+  console.warn('[SW] Could not load plugin scripts:', e.message);
+}
+
 // Analytics and usage tracking (privacy-first, local only)
 const analytics = {
   dailyStats: {},
@@ -694,6 +710,34 @@ async function handleBackgroundMessage(request, sender, sendResponse) {
         sendResponse({ success: true });
         break;
 
+      case 'agent:run':
+        await handleAgentMessage(request, sendResponse);
+        break;
+
+      case 'agent:list':
+        if (_agentOrchestrator) {
+          sendResponse({ success: true, result: _agentOrchestrator.list() });
+        } else {
+          sendResponse({ success: false, error: 'Plugin system not initialized' });
+        }
+        break;
+
+      case 'plugin:list':
+      case 'plugin:setActive':
+      case 'plugin:summary':
+      case 'plugin:getConfig':
+      case 'plugin:saveConfig':
+      case 'plugin:getMetadata':
+        await handlePluginMessage(request, sendResponse);
+        break;
+
+      case 'mcp:addServer':
+      case 'mcp:removeServer':
+      case 'mcp:listServers':
+      case 'mcp:testServer':
+        await handleMCPMessage(request, sendResponse);
+        break;
+
       default:
         sendResponse({ success: false, error: 'Unknown action' });
     }
@@ -973,6 +1017,208 @@ async function getAllHighlightsFromDrive() {
   }
 }
 
+// ─── MCP Message Handler ──────────────────────────────────────────────────────
+
+async function handleMCPMessage(request, sendResponse) {
+  const { action } = request;
+  const STORAGE_KEY = 'mcp_servers';
+
+  if (action === 'mcp:listServers') {
+    const stored = await chrome.storage.local.get(STORAGE_KEY);
+    sendResponse({ success: true, result: stored[STORAGE_KEY] || [] });
+
+  } else if (action === 'mcp:addServer') {
+    const { server } = request; // { id, name, url }
+    const stored = await chrome.storage.local.get(STORAGE_KEY);
+    const servers = stored[STORAGE_KEY] || [];
+
+    if (servers.find(s => s.id === server.id)) {
+      sendResponse({ success: false, error: 'A server with this ID already exists' });
+      return;
+    }
+
+    servers.push({ ...server, addedAt: new Date().toISOString(), status: 'unknown' });
+    await chrome.storage.local.set({ [STORAGE_KEY]: servers });
+
+    // Register as tool plugin if MCPToolPlugin is available
+    if (typeof MCPToolPlugin !== 'undefined' && _pluginRegistry) {
+      try {
+        const plugin = new MCPToolPlugin(server.id, server.url);
+        await plugin.onEnable({ serverUrl: server.url });
+        _pluginRegistry.register('tool', server.id, plugin);
+      } catch (err) {
+        console.warn('[MCP] Could not register server as plugin:', err.message);
+      }
+    }
+
+    sendResponse({ success: true, result: servers });
+
+  } else if (action === 'mcp:removeServer') {
+    const { id } = request;
+    const stored = await chrome.storage.local.get(STORAGE_KEY);
+    const servers = (stored[STORAGE_KEY] || []).filter(s => s.id !== id);
+    await chrome.storage.local.set({ [STORAGE_KEY]: servers });
+
+    if (_pluginRegistry?.has('tool', id)) {
+      _pluginRegistry.unregister('tool', id);
+    }
+
+    sendResponse({ success: true, result: servers });
+
+  } else if (action === 'mcp:testServer') {
+    const { url } = request;
+    if (typeof MCPClient === 'undefined') {
+      sendResponse({ success: false, error: 'MCP client not loaded' });
+      return;
+    }
+    try {
+      const client = new MCPClient(url, { timeout: 8000 });
+      await client.initialize();
+      const tools = await client.listTools();
+      sendResponse({ success: true, result: { connected: true, toolCount: tools.length, tools: tools.map(t => t.name) } });
+    } catch (err) {
+      sendResponse({ success: false, error: err.message });
+    }
+  }
+}
+
+
+// ─── Plugin System Bootstrap ──────────────────────────────────────────────────
+//
+// The plugin system runs in the service worker so all contexts (popup, agents,
+// content scripts via messaging) share one authoritative registry.
+//
+// We import the files dynamically instead of importScripts() so errors are
+// scoped and the rest of the background still starts if a plugin fails.
+
+let _pluginRegistry = null;
+let _agentOrchestrator = null;
+
+async function initPluginSystem() {
+  try {
+    // Scripts are already loaded at the top level — just initialise them here.
+    if (typeof PluginRegistry === 'undefined') {
+      throw new Error('Plugin scripts not loaded — importScripts failed at SW start');
+    }
+
+    const registry = PluginRegistry.getInstance();
+    await registry.loadActiveSelections();
+
+    const loader = new PluginLoader(registry);
+    await loader.init();
+
+    const orchestrator = new AgentOrchestrator(registry);
+    orchestrator.register('research', ResearchAgent);
+    orchestrator.register('writing', WritingAgent);
+    orchestrator.register('learning', LearningAgent);
+
+    _pluginRegistry = registry;
+    _agentOrchestrator = orchestrator;
+
+    console.log('[Plugins] System ready:', registry.getSummary());
+  } catch (err) {
+    console.warn('[Plugins] Could not initialize plugin system:', err.message);
+  }
+}
+
+// Handle agent run requests from popup / highlights-manager
+async function handleAgentMessage(request, sendResponse) {
+  if (!_agentOrchestrator) {
+    sendResponse({ success: false, error: 'Plugin system not initialized' });
+    return;
+  }
+
+  const { agentName, context, options } = request;
+  try {
+    const result = await _agentOrchestrator.run(agentName, context, options);
+    sendResponse({ success: true, result });
+  } catch (err) {
+    sendResponse({ success: false, error: err.message });
+  }
+}
+
+async function handlePluginMessage(request, sendResponse) {
+  if (!_pluginRegistry) {
+    sendResponse({ success: false, error: 'Plugin system not initialized' });
+    return;
+  }
+
+  const { action } = request;
+
+  if (action === 'plugin:list') {
+    sendResponse({ success: true, result: _pluginRegistry.listAll() });
+  } else if (action === 'plugin:setActive') {
+    try {
+      await _pluginRegistry.setActive(request.category, request.id);
+      sendResponse({ success: true });
+    } catch (err) {
+      sendResponse({ success: false, error: err.message });
+    }
+  } else if (action === 'plugin:summary') {
+    sendResponse({ success: true, result: _pluginRegistry.getSummary() });
+
+  } else if (action === 'plugin:getConfig') {
+    try {
+      const key = `plugin_config_${request.category}_${request.id}`;
+      const result = await chrome.storage.local.get(key);
+      sendResponse({ success: true, result: result[key] || {} });
+    } catch (err) {
+      sendResponse({ success: false, error: err.message });
+    }
+
+  } else if (action === 'plugin:saveConfig') {
+    try {
+      const key = `plugin_config_${request.category}_${request.id}`;
+      await chrome.storage.local.set({ [key]: request.config });
+
+      // Re-enable the plugin with new config if it's the active one
+      if (_pluginRegistry?.has(request.category, request.id)) {
+        const plugin = _pluginRegistry.get(request.category, request.id);
+        await plugin.onEnable(request.config);
+      }
+
+      sendResponse({ success: true });
+    } catch (err) {
+      sendResponse({ success: false, error: err.message });
+    }
+
+  } else if (action === 'plugin:getMetadata') {
+    try {
+      // Return full plugin list with configFields included
+      const all = _pluginRegistry.listAll();
+      const withMeta = {};
+      for (const [cat, plugins] of Object.entries(all)) {
+        withMeta[cat] = plugins.map(({ id, plugin, metadata, isActive }) => ({
+          id,
+          isActive,
+          metadata: {
+            ...metadata,
+            configFields: plugin.constructor.metadata?.configFields || []
+          }
+        }));
+      }
+      sendResponse({ success: true, result: withMeta });
+    } catch (err) {
+      sendResponse({ success: false, error: err.message });
+    }
+
+  } else {
+    sendResponse({ success: false, error: `Unknown plugin action: ${action}` });
+  }
+}
+
+
+// ── Keyboard command handler ──────────────────────────────────────────────────
+chrome.commands.onCommand.addListener(async (command) => {
+  if (command === 'highlight-selection') {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab?.id) return;
+    chrome.tabs.sendMessage(tab.id, { action: 'triggerHighlight' }).catch(() => {});
+  } else if (command === 'open-manager') {
+    chrome.tabs.create({ url: chrome.runtime.getURL('highlights-manager.html') });
+  }
+});
+
 // Initialize background script
 (async function init() {
   try {
@@ -986,7 +1232,10 @@ async function getAllHighlightsFromDrive() {
       analytics.dailyStats = stored.dailyStats;
     }
 
-    console.log('🌟 Universal Web Highlighter background script initialized');
+    // Initialize plugin system (non-blocking — failure is logged, not fatal)
+    initPluginSystem().catch(err => console.warn('[Plugins] Init error:', err.message));
+
+    console.log('Universal Web Highlighter background script initialized');
   } catch (error) {
     console.error('Background script initialization error:', error);
   }

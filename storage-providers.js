@@ -1552,9 +1552,8 @@ class ExternalSyncStorageProvider extends IStorageProvider {
   }
 
   getSyncEndpoint() {
-    // Configure this endpoint in extension options or localStorage
-    return localStorage.getItem('highlighter_sync_endpoint') ||
-           'https://your-latenode-automation.webhook.com/highlights';
+    // Configured by user via plugin settings or localStorage
+    return localStorage.getItem('highlighter_sync_endpoint') || null;
   }
 
   getUserId() {

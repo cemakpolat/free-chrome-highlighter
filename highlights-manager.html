@@ -12,6 +12,16 @@
     <p>Organize and explore your highlighted content</p>
   </div>
 
+  <!-- Top navigation tabs -->
+  <nav class="page-tabs" role="tablist">
+    <button class="page-tab active" data-view="highlights" role="tab">Highlights</button>
+    <button class="page-tab" data-view="agents" role="tab">AI Agents</button>
+    <button class="page-tab" data-view="history" role="tab">History</button>
+    <button class="page-tab" data-view="plugins" role="tab">Plugins</button>
+  </nav>
+
+  <!-- ── Highlights View ────────────────────────────────────────── -->
+  <div id="view-highlights" class="page-view active">
   <div class="container">
     <!-- Controls Section -->
     <div class="controls">
@@ -117,6 +127,192 @@
     </div>
   </div>
 
+  </div><!-- /view-highlights -->
+
+  <!-- ── AI Agents View ─────────────────────────────────────────── -->
+  <div id="view-agents" class="page-view agents-view">
+    <div class="agents-layout">
+
+      <!-- Left: agent picker -->
+      <aside class="agents-sidebar">
+        <h2 class="agents-sidebar-title">Agents</h2>
+
+        <button class="agent-card active" data-agent="research">
+          <div class="agent-icon">🔬</div>
+          <div class="agent-info">
+            <div class="agent-name">Research</div>
+            <div class="agent-desc">Find papers, extract concepts, build a brief</div>
+          </div>
+        </button>
+
+        <button class="agent-card" data-agent="writing">
+          <div class="agent-icon">✍️</div>
+          <div class="agent-info">
+            <div class="agent-name">Writing</div>
+            <div class="agent-desc">Outline, argument map, citations, draft</div>
+          </div>
+        </button>
+
+        <button class="agent-card" data-agent="learning">
+          <div class="agent-icon">🧠</div>
+          <div class="agent-info">
+            <div class="agent-name">Learning</div>
+            <div class="agent-desc">Flashcards, quiz, spaced repetition</div>
+          </div>
+        </button>
+
+        <div class="agents-sidebar-footer">
+          <div class="plugin-status-chip" id="aiPluginChip">AI: extractive</div>
+        </div>
+      </aside>
+
+      <!-- Right: agent workspace -->
+      <main class="agents-main">
+
+        <!-- Research config -->
+        <div class="agent-config" id="config-research">
+          <h3>Research Brief</h3>
+          <p class="agent-config-desc">Select highlights below, ask a question, and get a brief with related academic papers.</p>
+          <div class="agent-form">
+            <label class="agent-label">Research question <span class="optional">(optional)</span></label>
+            <input class="agent-input" id="research-query" type="text" placeholder="e.g. What are the main arguments about climate feedback loops?">
+            <label class="agent-label" style="margin-top:12px;">Highlight scope</label>
+            <div class="scope-row">
+              <select class="agent-select" id="research-scope">
+                <option value="page">Current page highlights</option>
+                <option value="all">All highlights</option>
+              </select>
+              <label class="toggle-label"><input type="checkbox" id="research-papers" checked> Include related papers</label>
+            </div>
+          </div>
+          <button class="run-agent-btn" data-agent="research">Run Research Agent</button>
+        </div>
+
+        <!-- Writing config -->
+        <div class="agent-config hidden" id="config-writing">
+          <h3>Writing Assistant</h3>
+          <p class="agent-config-desc">Turn your highlights into structured writing output.</p>
+          <div class="agent-form">
+            <label class="agent-label">Title <span class="optional">(optional)</span></label>
+            <input class="agent-input" id="writing-title" type="text" placeholder="e.g. My essay on renewable energy">
+            <label class="agent-label" style="margin-top:12px;">Output format</label>
+            <div class="format-chips" id="writing-format-chips">
+              <button class="format-chip active" data-format="outline">Outline</button>
+              <button class="format-chip" data-format="argument-map">Argument Map</button>
+              <button class="format-chip" data-format="citations">Citations</button>
+              <button class="format-chip" data-format="draft">Draft</button>
+            </div>
+            <label class="agent-label" style="margin-top:12px;">Highlight scope</label>
+            <select class="agent-select" id="writing-scope">
+              <option value="page">Current page highlights</option>
+              <option value="all">All highlights</option>
+            </select>
+          </div>
+          <button class="run-agent-btn" data-agent="writing">Run Writing Agent</button>
+        </div>
+
+        <!-- Learning config -->
+        <div class="agent-config hidden" id="config-learning">
+          <h3>Learning Tools</h3>
+          <p class="agent-config-desc">Convert highlights into study materials.</p>
+          <div class="agent-form">
+            <label class="agent-label">Format</label>
+            <div class="format-chips" id="learning-format-chips">
+              <button class="format-chip active" data-format="flashcards">Flashcards</button>
+              <button class="format-chip" data-format="quiz">Quiz</button>
+              <button class="format-chip" data-format="study-plan">Study Plan</button>
+            </div>
+            <label class="agent-label" style="margin-top:12px;">Difficulty <span class="optional">(quiz only)</span></label>
+            <div class="format-chips" id="difficulty-chips">
+              <button class="format-chip active" data-difficulty="medium">Medium</button>
+              <button class="format-chip" data-difficulty="easy">Easy</button>
+              <button class="format-chip" data-difficulty="hard">Hard</button>
+            </div>
+            <label class="agent-label" style="margin-top:12px;">Highlight scope</label>
+            <select class="agent-select" id="learning-scope">
+              <option value="page">Current page highlights</option>
+              <option value="all">All highlights</option>
+            </select>
+          </div>
+          <button class="run-agent-btn" data-agent="learning">Run Learning Agent</button>
+        </div>
+
+        <!-- Progress / result area -->
+        <div class="agent-result-area" id="agentResultArea">
+          <div class="agent-idle-state">
+            <div class="agent-idle-icon">✨</div>
+            <p>Configure an agent above and click Run to get started.</p>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div><!-- /view-agents -->
+
+  <!-- ── History View ──────────────────────────────────────────── -->
+  <div id="view-history" class="page-view history-view">
+    <div class="history-layout">
+      <div class="history-toolbar">
+        <div class="history-filter-tabs">
+          <button class="history-filter active" data-type="all">All</button>
+          <button class="history-filter" data-type="research-brief">Research</button>
+          <button class="history-filter" data-type="writing-output">Writing</button>
+          <button class="history-filter" data-type="learning-output">Learning</button>
+        </div>
+        <button class="history-clear-btn" id="historyClearBtn">Clear All</button>
+      </div>
+      <div class="history-list" id="historyList">
+        <div class="history-empty">
+          <div class="history-empty-icon">🗂️</div>
+          <p>No agent outputs yet. Run an agent in the AI Agents tab to see results here.</p>
+        </div>
+      </div>
+    </div>
+  </div><!-- /view-history -->
+
+  <!-- ── Plugins View ───────────────────────────────────────────── -->
+  <div id="view-plugins" class="page-view plugins-view">
+    <div class="plugins-layout">
+
+      <div class="plugins-section">
+        <h3 class="plugins-section-title">Storage Provider</h3>
+        <p class="plugins-section-desc">Where your highlights are saved.</p>
+        <div class="plugin-list" id="plugin-list-storage">
+          <div class="plugin-loading">Loading...</div>
+        </div>
+      </div>
+
+      <div class="plugins-section">
+        <h3 class="plugins-section-title">AI Provider</h3>
+        <p class="plugins-section-desc">Powers summaries, agents, and concept extraction.</p>
+        <div class="plugin-list" id="plugin-list-ai">
+          <div class="plugin-loading">Loading...</div>
+        </div>
+      </div>
+
+      <div class="plugins-section">
+        <h3 class="plugins-section-title">Tools</h3>
+        <p class="plugins-section-desc">Extra actions — share to Slack, search papers, copy to clipboard.</p>
+        <div class="plugin-list" id="plugin-list-tool">
+          <div class="plugin-loading">Loading...</div>
+        </div>
+      </div>
+
+      <div class="plugins-section">
+        <h3 class="plugins-section-title">MCP Servers</h3>
+        <p class="plugins-section-desc">Connect to any MCP-compatible tool server. Agents can call tools exposed by these servers.</p>
+        <div class="mcp-add-row">
+          <input class="agent-input" id="mcpServerUrl" type="text" placeholder="http://localhost:3000" style="flex:1">
+          <input class="agent-input" id="mcpServerName" type="text" placeholder="Name" style="width:130px">
+          <button class="mcp-add-btn" id="mcpAddBtn">Add</button>
+        </div>
+        <div class="plugin-list" id="mcp-server-list">
+          <div class="plugin-loading">No MCP servers connected.</div>
+        </div>
+      </div>
+
+    </div>
+  </div><!-- /view-plugins -->
+
   <!-- Export Modal -->
   <div class="modal-overlay" id="exportModal">
     <div class="export-modal">
@@ -143,9 +339,14 @@
             <div class="format-desc">Plain text with formatting</div>
           </div>
           <div class="format-option" data-format="pdf">
-            <div class="format-icon">📊</div>
+            <div class="format-icon">📄</div>
             <div class="format-name">PDF</div>
             <div class="format-desc">Printable document</div>
+          </div>
+          <div class="format-option" data-format="csv">
+            <div class="format-icon">📋</div>
+            <div class="format-name">CSV</div>
+            <div class="format-desc">Spreadsheet-compatible rows</div>
           </div>
         </div>
       </div>
@@ -209,8 +410,96 @@
     </div>
   </div>
 
+  <!-- First-run Onboarding Overlay -->
+  <div class="onboarding-overlay hidden" id="onboardingOverlay">
+    <div class="onboarding-modal">
+      <div class="onboarding-steps" id="onboardingSteps">
+
+        <!-- Step 1 -->
+        <div class="onboarding-step active" data-step="1">
+          <div class="onboarding-graphic">✨</div>
+          <h2 class="onboarding-title">Welcome to Universal Web Highlighter</h2>
+          <p class="onboarding-body">Your free, open alternative to Web Highlights — with AI agents, plugin-based integrations, and no vendor lock-in.</p>
+          <div class="onboarding-features">
+            <div class="onboarding-feature"><span>🎨</span> Highlight any text on any page</div>
+            <div class="onboarding-feature"><span>☁️</span> Sync to Google Drive, Notion, or Obsidian</div>
+            <div class="onboarding-feature"><span>🤖</span> AI agents for research, writing & learning</div>
+            <div class="onboarding-feature"><span>🔌</span> Plugin system — your data, your tools</div>
+          </div>
+        </div>
+
+        <!-- Step 2 -->
+        <div class="onboarding-step" data-step="2">
+          <div class="onboarding-graphic">🎨</div>
+          <h2 class="onboarding-title">Start Highlighting</h2>
+          <p class="onboarding-body">Select any text on a webpage and a toolbar appears. Choose a colour, add a note, and your highlight is saved instantly.</p>
+          <div class="onboarding-tip">
+            <strong>Tip:</strong> Highlights are typed automatically — definitions get amber, evidence gets blue, questions get purple.
+          </div>
+        </div>
+
+        <!-- Step 3 -->
+        <div class="onboarding-step" data-step="3">
+          <div class="onboarding-graphic">🤖</div>
+          <h2 class="onboarding-title">Run AI Agents</h2>
+          <p class="onboarding-body">After highlighting, open the <strong>AI Agents</strong> tab. Choose Research, Writing, or Learning — the agent reads your highlights and produces a brief, outline, or flashcards.</p>
+          <div class="onboarding-tip">
+            Works offline with the built-in extractive engine. Connect Ollama or Claude for richer results.
+          </div>
+        </div>
+
+        <!-- Step 4 -->
+        <div class="onboarding-step" data-step="4">
+          <div class="onboarding-graphic">🔌</div>
+          <h2 class="onboarding-title">Choose Your Integrations</h2>
+          <p class="onboarding-body">Open the <strong>Plugins</strong> tab to switch storage providers, AI engines, and connect MCP tool servers — all without leaving the extension.</p>
+          <div class="onboarding-tip">
+            Nothing is locked in. Swap providers any time. Your highlights stay in your browser unless you choose to sync them.
+          </div>
+        </div>
+
+      </div>
+
+      <div class="onboarding-footer">
+        <div class="onboarding-dots" id="onboardingDots">
+          <span class="onboarding-dot active"></span>
+          <span class="onboarding-dot"></span>
+          <span class="onboarding-dot"></span>
+          <span class="onboarding-dot"></span>
+        </div>
+        <div class="onboarding-nav">
+          <button class="onboarding-btn secondary" id="onboardingBack" style="display:none">Back</button>
+          <button class="onboarding-btn primary" id="onboardingNext">Next →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Plugin Config Modal -->
+  <div class="plugin-config-overlay hidden" id="pluginConfigOverlay">
+    <div class="plugin-config-modal">
+      <div class="plugin-config-header">
+        <div class="plugin-config-title-row">
+          <span class="plugin-config-icon" id="pluginConfigIcon"></span>
+          <h3 class="plugin-config-title" id="pluginConfigTitle">Configure Plugin</h3>
+        </div>
+        <button class="plugin-config-close" id="pluginConfigClose" aria-label="Close">✕</button>
+      </div>
+      <p class="plugin-config-desc" id="pluginConfigDesc"></p>
+      <form class="plugin-config-form" id="pluginConfigForm" autocomplete="off">
+        <div id="pluginConfigFields"></div>
+        <div class="plugin-config-error hidden" id="pluginConfigError"></div>
+        <div class="plugin-config-footer">
+          <button type="button" class="plugin-config-btn secondary" id="pluginConfigCancel">Cancel</button>
+          <button type="submit" class="plugin-config-btn primary" id="pluginConfigSave">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <script src="ai-summary-service.js"></script>
   <script src="tts-service.js"></script>
   <script src="highlights-manager.js"></script>
+  <script src="highlights-manager-agents.js"></script>
 </body>
 </html>

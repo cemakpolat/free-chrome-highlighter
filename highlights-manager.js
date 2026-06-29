@@ -24,10 +24,19 @@ class HighlightManager {
 
     this.setupEventListeners();
     this.setupDeleteModal();
+    this.setupMessageListener();
     await this.loadHighlights();
     // this.populateCategoryFilter(); // removed - categories no longer used
     this.updateStats();
     this.renderPages();
+    this._handleHashNavigation();
+  }
+
+  _handleHashNavigation() {
+    const hash = window.location.hash.replace('#', '');
+    if (!hash) return;
+    const tab = document.querySelector(`.page-tab[data-view="${hash}"]`);
+    if (tab) tab.click();
   }
 
   setupEventListeners() {
@@ -119,6 +128,43 @@ class HighlightManager {
         }
       }
     });
+  }
+
+  setupMessageListener() {
+    chrome.runtime.onMessage?.addListener?.((request, sender, sendResponse) => {
+      if (request.action === 'auto-summarize-domain') {
+        this.autoSummarizeDomain(request.domain);
+      }
+    });
+  }
+
+  async autoSummarizeDomain(domain) {
+    try {
+      // Wait for highlights to be loaded
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Find the page with this domain
+      const page = this.pages.find(p => new URL(p.url).hostname === domain);
+      if (!page) {
+        console.warn('Page with domain not found:', domain);
+        return;
+      }
+
+      // Select this page
+      this.selectedPage = page;
+      this.applyFilters();
+
+      // Scroll to summary section
+      setTimeout(() => {
+        const summaryBtn = document.getElementById('generateSummaryBtn');
+        if (summaryBtn) {
+          summaryBtn.click();
+          summaryBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 500);
+    } catch (error) {
+      console.error('Error auto-summarizing:', error);
+    }
   }
 
   async loadHighlights() {
@@ -1211,7 +1257,7 @@ class HighlightManager {
 
     } catch (error) {
       console.error('Error deleting highlight:', error);
-      alert('Failed to delete highlight');
+      this.showErrorMessage('Failed to delete highlight');
     }
   }
 
@@ -1260,6 +1306,11 @@ class HighlightManager {
         content = this.generateMarkdown();
         filename = 'highlights.md';
         mimeType = 'text/markdown';
+        break;
+      case 'csv':
+        content = this.generateCSV();
+        filename = 'highlights.csv';
+        mimeType = 'text/csv';
         break;
       case 'pdf':
         this.generatePDF();
@@ -1326,6 +1377,23 @@ class HighlightManager {
     `;
   }
 
+  generateCSV() {
+    const headers = ['text', 'note', 'color', 'type', 'tags', 'url', 'title', 'domain', 'date'];
+    const escape = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const rows = this.filteredHighlights.map(h => [
+      escape(h.text),
+      escape(h.note || ''),
+      escape(h.color || ''),
+      escape(h.type || ''),
+      escape((h.tags || []).join('; ')),
+      escape(h.url || ''),
+      escape(h.title || ''),
+      escape(h.domain || ''),
+      escape(this.formatDate(h.timestamp))
+    ].join(','));
+    return [headers.join(','), ...rows].join('\r\n');
+  }
+
   generateMarkdown() {
     const pageGroups = this.groupHighlightsByPage(this.filteredHighlights);
 
@@ -1367,7 +1435,7 @@ ${h.note ? `*Note: ${h.note}*\n` : ''}
 
   async generateAISummary() {
     if (!this.selectedPage) {
-      alert('Please select a page to generate a summary for.');
+      this.showErrorMessage('Please select a page to generate a summary for.');
       return;
     }
 
@@ -1376,7 +1444,7 @@ ${h.note ? `*Note: ${h.note}*\n` : ''}
     );
 
     if (pageHighlights.length === 0) {
-      alert('No highlights found for this page. Please add some highlights first.');
+      this.showErrorMessage('No highlights found for this page. Please add some highlights first.');
       return;
     }
 
@@ -1472,7 +1540,7 @@ ${h.note ? `*Note: ${h.note}*\n` : ''}
 
   async copySummaryToClipboard() {
     if (!this.currentSummary) {
-      alert('No summary to copy');
+      this.showErrorMessage('No summary to copy');
       return;
     }
 
@@ -1490,7 +1558,7 @@ ${h.note ? `*Note: ${h.note}*\n` : ''}
       selection.removeAllRanges();
       selection.addRange(range);
 
-      alert('Summary text selected. Please press Ctrl+C (or Cmd+C) to copy.');
+      this.showSuccessMessage('Summary selected — press Ctrl+C (or Cmd+C) to copy.');
     }
   }
 
@@ -1592,7 +1660,7 @@ ${h.note ? `*Note: ${h.note}*\n` : ''}
 
   exportSummary() {
     if (!this.currentSummary) {
-      alert('No summary to export');
+      this.showErrorMessage('No summary to export');
       return;
     }
 

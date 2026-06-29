@@ -13,6 +13,7 @@ class MinimalPopup {
     this.setupTabs();
     this.setupButtons();
     this.setupFilters();
+    this.setupAITab();
     this.checkGoogleDriveStatus();
     this.loadHighlights();
 
@@ -37,6 +38,9 @@ class MinimalPopup {
     this.setupButton('header-reader-view', () => this.activateReaderView());
     this.setupButton('header-video-transcript', () => this.activateVideoAnnotation());
     this.setupButton('header-pdf-reader', () => this.openPDFReader());
+
+    // AI tab buttons
+    this.setupButton('summarizePageBtn', () => this.summarizePage());
 
     // Manage tab buttons (keep existing)
     this.setupButton('manage-all', () => this.openManager());
@@ -189,9 +193,38 @@ class MinimalPopup {
     });
   }
 
+  async summarizePage() {
+    try {
+      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!tabs[0]) {
+        this.showErrorMessage('No active page found');
+        return;
+      }
+
+      const currentUrl = tabs[0].url;
+      const domain = new URL(currentUrl).hostname;
+
+      // Open manager with hash to indicate summary mode
+      chrome.tabs.create({
+        url: chrome.runtime.getURL('highlights-manager.html') + '#summarize-' + encodeURIComponent(domain)
+      }, (tab) => {
+        // Send message to the newly opened tab to trigger auto-summary
+        setTimeout(() => {
+          chrome.tabs.sendMessage(tab.id, {
+            action: 'auto-summarize-domain',
+            domain: domain
+          }).catch(() => {});
+        }, 500);
+      });
+    } catch (error) {
+      console.error('Error summarizing page:', error);
+      this.showErrorMessage('Could not summarize page');
+    }
+  }
+
   openSettings() {
     chrome.tabs.create({
-      url: chrome.runtime.getURL('options.html')
+      url: chrome.runtime.getURL('highlights-manager.html') + '#plugins'
     });
   }
 
@@ -220,7 +253,7 @@ class MinimalPopup {
       }
     } catch (error) {
       console.error('🟢 Reader view error:', error);
-      alert('Could not activate reader view. Make sure you are on a regular webpage.');
+      this.showErrorMessage('Could not activate reader view. Make sure you are on a regular webpage.');
     }
   }
 
@@ -235,7 +268,7 @@ class MinimalPopup {
       }
     } catch (error) {
       console.error('🟢 Video annotation error:', error);
-      alert('Could not activate video annotation. Make sure there is a video on this page.');
+      this.showErrorMessage('Could not activate video annotation. Make sure there is a video on this page.');
     }
   }
 
@@ -263,12 +296,12 @@ class MinimalPopup {
           await chrome.tabs.create({ url: readerUrl });
           window.close();
         } else {
-          alert('This page is not a PDF. Please navigate to a PDF file first.');
+          this.showErrorMessage('This page is not a PDF. Please navigate to a PDF file first.');
         }
       }
     } catch (error) {
       console.error('🟢 PDF reader error:', error);
-      alert('Could not open PDF reader. Make sure you are on a PDF page.');
+      this.showErrorMessage('Could not open PDF reader. Make sure you are on a PDF page.');
     }
   }
 
@@ -330,7 +363,7 @@ class MinimalPopup {
 
   openHelp() {
     chrome.tabs.create({
-      url: 'https://github.com/your-repo/help'
+      url: 'https://github.com/cemakpolat/free-chrome-highlighter'
     });
   }
 
@@ -505,6 +538,43 @@ class MinimalPopup {
       console.error('🟢 Error deleting from storage:', error);
       return false;
     }
+  }
+  setupAITab() {
+    // Agent quick-launch buttons → open manager on the agents tab
+    document.querySelectorAll('.ai-agent-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        chrome.tabs.create({ url: chrome.runtime.getURL('highlights-manager.html') + '#agents' });
+        window.close();
+      });
+    });
+
+    document.getElementById('openAgentsManager')?.addEventListener('click', () => {
+      chrome.tabs.create({ url: chrome.runtime.getURL('highlights-manager.html') + '#agents' });
+      window.close();
+    });
+
+    // Show current AI plugin status
+    chrome.runtime.sendMessage({ action: 'plugin:summary' })
+      .then(resp => {
+        const dot = document.getElementById('aiStatusDot');
+        const label = document.getElementById('aiStatusLabel');
+        if (!dot || !label) return;
+
+        if (resp?.success) {
+          const ai = resp.result.active.ai || 'none';
+          dot.classList.add('ready');
+          label.textContent = `AI: ${ai}`;
+        } else {
+          dot.classList.add('unavailable');
+          label.textContent = 'Plugin system loading...';
+        }
+      })
+      .catch(() => {
+        const dot = document.getElementById('aiStatusDot');
+        const label = document.getElementById('aiStatusLabel');
+        if (dot) dot.classList.add('unavailable');
+        if (label) label.textContent = 'Offline (extractive only)';
+      });
   }
 }
 
