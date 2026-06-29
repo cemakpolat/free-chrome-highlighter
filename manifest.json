@@ -32,12 +32,13 @@
         "interfaces.js",
         "storage-providers.js",
         "tts-service.js",
+        "lib/error-display.js",
         "highlighter-service.js",
         "reader-view.js",
         "video-annotation.js",
         "content-script.js"
       ],
-      "css": ["highlight-styles.css"],
+      "css": ["design-tokens.css", "highlight-styles.css"],
       "run_at": "document_idle",
       "all_frames": true,
       "match_about_blank": true

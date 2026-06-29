@@ -59,6 +59,18 @@
   --color-highlight-teal: #4ecdc4;
   --color-highlight-purple: #9c27b0;
 
+  /* Semantic Highlight Types (what do highlights mean) */
+  --color-type-definition: #FEF3C7;    /* Definition: yellow/amber */
+  --color-type-definition-dark: #7C2D12;
+  --color-type-evidence: #DBEAFE;     /* Evidence: blue */
+  --color-type-evidence-dark: #1E3A8A;
+  --color-type-question: #F3E8FF;     /* Question: purple */
+  --color-type-question-dark: #4C1D95;
+  --color-type-action: #FECACA;       /* Action: red */
+  --color-type-action-dark: #7C2D12;
+  --color-type-key: #86EFAC;          /* Key insight: green */
+  --color-type-key-dark: #166534;
+
   /* Border Colors */
   --color-border-primary: rgba(148, 163, 184, 0.2);
   --color-border-secondary: rgba(148, 163, 184, 0.3);
