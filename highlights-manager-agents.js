@@ -260,13 +260,16 @@ function initAgentsView() {
 
 const PLUGIN_ICONS = {
   'local': '💾', 'google-drive': '☁️', 'notion': '📓', 'obsidian': '💎',
-  'extractive': '🔤', 'ollama': '🦙', 'claude-api': '🤖', 'huggingface': '🤗',
+  'extractive': '🔤', 'ollama': '🦙', 'claude': '🤖', 'huggingface': '🤗',
   'semantic-scholar': '📚', 'slack': '💬', 'clipboard': '📋'
 };
 
+// ─── Plugin list ──────────────────────────────────────────────────────────────
+
 async function initPluginsView() {
   try {
-    const resp = await chrome.runtime.sendMessage({ action: 'plugin:list' });
+    // Use plugin:getMetadata so we get configFields too
+    const resp = await chrome.runtime.sendMessage({ action: 'plugin:getMetadata' });
     if (!resp?.success) { renderPluginError(); return; }
 
     renderPluginCategory('storage', resp.result.storage || []);
@@ -286,16 +289,20 @@ function renderPluginCategory(category, plugins) {
     return;
   }
 
-  container.innerHTML = plugins.map(({ id, metadata, isActive }) => {
-    const m = metadata || {};
+  container.innerHTML = plugins.map(({ id, metadata: m = {}, isActive }) => {
     const icon = PLUGIN_ICONS[id] || '🔌';
+    const hasConfig = (m.configFields || []).length > 0;
+
     const badges = [
       m.isBuiltIn && '<span class="plugin-badge">built-in</span>',
-      m.supportsOffline && '<span class="plugin-badge local">offline</span>',
-      m.isLocal && '<span class="plugin-badge local">local</span>',
+      (m.supportsOffline || m.isLocal) && '<span class="plugin-badge local">offline</span>',
       m.auth === null && '<span class="plugin-badge free">no auth</span>',
       isActive && '<span class="plugin-badge active-badge">active</span>'
     ].filter(Boolean).join('');
+
+    const configBtn = hasConfig
+      ? `<button class="plugin-config-trigger" data-category="${escAttr(category)}" data-id="${escAttr(id)}" title="Configure">⚙</button>`
+      : '';
 
     return `
       <div class="plugin-row ${isActive ? 'is-active' : ''}">
@@ -305,13 +312,17 @@ function renderPluginCategory(category, plugins) {
           <div class="plugin-row-desc">${escHtml(m.description || '')}</div>
           ${badges ? `<div class="plugin-row-badges">${badges}</div>` : ''}
         </div>
-        <button class="plugin-select-btn ${isActive ? 'is-active' : ''}"
-          data-category="${escAttr(category)}" data-id="${escAttr(id)}">
-          ${isActive ? 'Active' : 'Use'}
-        </button>
+        <div style="display:flex;gap:6px;align-items:center;flex-shrink:0">
+          ${configBtn}
+          <button class="plugin-select-btn ${isActive ? 'is-active' : ''}"
+            data-category="${escAttr(category)}" data-id="${escAttr(id)}">
+            ${isActive ? 'Active' : 'Use'}
+          </button>
+        </div>
       </div>`;
   }).join('');
 
+  // Activate button
   container.querySelectorAll('.plugin-select-btn:not(.is-active)').forEach(btn => {
     btn.addEventListener('click', async () => {
       try {
@@ -327,6 +338,11 @@ function renderPluginCategory(category, plugins) {
       }
     });
   });
+
+  // Config gear button
+  container.querySelectorAll('.plugin-config-trigger').forEach(btn => {
+    btn.addEventListener('click', () => openConfigModal(btn.dataset.category, btn.dataset.id));
+  });
 }
 
 function renderPluginError() {
@@ -335,6 +351,159 @@ function renderPluginError() {
     if (el) el.innerHTML = '<div class="plugin-loading">Plugin system unavailable.</div>';
   });
 }
+
+// ─── Config modal ─────────────────────────────────────────────────────────────
+
+let _configModal = {
+  category: null,
+  id: null,
+  fields: []
+};
+
+async function openConfigModal(category, id) {
+  try {
+    // Load metadata + current config in parallel
+    const [metaResp, configResp] = await Promise.all([
+      chrome.runtime.sendMessage({ action: 'plugin:getMetadata' }),
+      chrome.runtime.sendMessage({ action: 'plugin:getConfig', category, id })
+    ]);
+
+    if (!metaResp?.success) return;
+
+    const allPlugins = [
+      ...(metaResp.result.storage || []),
+      ...(metaResp.result.ai || []),
+      ...(metaResp.result.tool || [])
+    ];
+    const plugin = allPlugins.find(p => p.id === id);
+    if (!plugin) return;
+
+    const m = plugin.metadata || {};
+    const savedConfig = configResp?.result || {};
+    const fields = m.configFields || [];
+
+    _configModal = { category, id, fields };
+
+    // Populate modal
+    document.getElementById('pluginConfigIcon').textContent = PLUGIN_ICONS[id] || '🔌';
+    document.getElementById('pluginConfigTitle').textContent = `Configure ${m.name || id}`;
+    document.getElementById('pluginConfigDesc').textContent = m.description || '';
+
+    const fieldsEl = document.getElementById('pluginConfigFields');
+    fieldsEl.innerHTML = fields.map(f => `
+      <div class="config-field">
+        <label class="config-field-label" for="cfg_${escAttr(f.id)}">${escHtml(f.label)}</label>
+        <input
+          class="config-field-input"
+          id="cfg_${escAttr(f.id)}"
+          type="${f.type === 'password' ? 'password' : 'text'}"
+          placeholder="${escAttr(f.placeholder || '')}"
+          value="${escAttr(savedConfig[f.id] || '')}"
+          autocomplete="off"
+        >
+        ${f.hint ? `<div class="plugin-config-hint">${escHtml(f.hint)}</div>` : ''}
+      </div>`).join('');
+
+    // Show saved indicator if config already exists
+    const hasSaved = fields.some(f => savedConfig[f.id]);
+    if (hasSaved) {
+      fieldsEl.insertAdjacentHTML('afterbegin', `
+        <div class="config-status-row">✓ Configuration saved. Update fields below to change.</div>`);
+    }
+
+    hideConfigError();
+    document.getElementById('pluginConfigOverlay').classList.remove('hidden');
+
+    // Focus first field
+    const first = fieldsEl.querySelector('.config-field-input');
+    if (first) setTimeout(() => first.focus(), 60);
+  } catch (err) {
+    console.error('Could not open config modal:', err);
+  }
+}
+
+function closeConfigModal() {
+  document.getElementById('pluginConfigOverlay').classList.add('hidden');
+  _configModal = { category: null, id: null, fields: [] };
+}
+
+function showConfigError(msg) {
+  const el = document.getElementById('pluginConfigError');
+  el.textContent = msg;
+  el.classList.remove('hidden');
+}
+
+function hideConfigError() {
+  document.getElementById('pluginConfigError').classList.add('hidden');
+}
+
+async function savePluginConfig(e) {
+  e.preventDefault();
+  hideConfigError();
+
+  const { category, id, fields } = _configModal;
+  if (!category || !id) return;
+
+  const config = {};
+  for (const f of fields) {
+    const el = document.getElementById(`cfg_${f.id}`);
+    if (el) config[f.id] = el.value.trim();
+  }
+
+  const saveBtn = document.getElementById('pluginConfigSave');
+  saveBtn.disabled = true;
+  saveBtn.textContent = 'Saving...';
+
+  try {
+    const resp = await chrome.runtime.sendMessage({
+      action: 'plugin:saveConfig',
+      category,
+      id,
+      config
+    });
+
+    if (!resp?.success) throw new Error(resp?.error || 'Save failed');
+
+    saveBtn.textContent = 'Saved!';
+    setTimeout(() => {
+      closeConfigModal();
+      initPluginsView();
+      initAgentsView();
+    }, 600);
+  } catch (err) {
+    showConfigError(err.message);
+    saveBtn.disabled = false;
+    saveBtn.textContent = 'Save';
+  }
+}
+
+// Wire config modal events
+document.getElementById('pluginConfigClose')?.addEventListener('click', closeConfigModal);
+document.getElementById('pluginConfigCancel')?.addEventListener('click', closeConfigModal);
+document.getElementById('pluginConfigForm')?.addEventListener('submit', savePluginConfig);
+document.getElementById('pluginConfigOverlay')?.addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeConfigModal();
+});
+
+// Also add CSS for the gear button inline
+(function addGearStyle() {
+  const style = document.createElement('style');
+  style.textContent = `
+    .plugin-config-trigger {
+      background: none;
+      border: 1px solid rgba(148,163,184,0.15);
+      border-radius: 7px;
+      color: #64748b;
+      font-size: 16px;
+      cursor: pointer;
+      padding: 5px 9px;
+      transition: color 0.15s, border-color 0.15s;
+      line-height: 1;
+    }
+    .plugin-config-trigger:hover { color: #e2e8f0; border-color: rgba(148,163,184,0.35); }
+  `;
+  document.head.appendChild(style);
+})();
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

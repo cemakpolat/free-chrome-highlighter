@@ -709,6 +709,9 @@ async function handleBackgroundMessage(request, sender, sendResponse) {
       case 'plugin:list':
       case 'plugin:setActive':
       case 'plugin:summary':
+      case 'plugin:getConfig':
+      case 'plugin:saveConfig':
+      case 'plugin:getMetadata':
         await handlePluginMessage(request, sendResponse);
         break;
 
@@ -1067,6 +1070,52 @@ async function handlePluginMessage(request, sendResponse) {
     }
   } else if (action === 'plugin:summary') {
     sendResponse({ success: true, result: _pluginRegistry.getSummary() });
+
+  } else if (action === 'plugin:getConfig') {
+    try {
+      const key = `plugin_config_${request.category}_${request.id}`;
+      const result = await chrome.storage.local.get(key);
+      sendResponse({ success: true, result: result[key] || {} });
+    } catch (err) {
+      sendResponse({ success: false, error: err.message });
+    }
+
+  } else if (action === 'plugin:saveConfig') {
+    try {
+      const key = `plugin_config_${request.category}_${request.id}`;
+      await chrome.storage.local.set({ [key]: request.config });
+
+      // Re-enable the plugin with new config if it's the active one
+      if (_pluginRegistry?.has(request.category, request.id)) {
+        const plugin = _pluginRegistry.get(request.category, request.id);
+        await plugin.onEnable(request.config);
+      }
+
+      sendResponse({ success: true });
+    } catch (err) {
+      sendResponse({ success: false, error: err.message });
+    }
+
+  } else if (action === 'plugin:getMetadata') {
+    try {
+      // Return full plugin list with configFields included
+      const all = _pluginRegistry.listAll();
+      const withMeta = {};
+      for (const [cat, plugins] of Object.entries(all)) {
+        withMeta[cat] = plugins.map(({ id, plugin, metadata, isActive }) => ({
+          id,
+          isActive,
+          metadata: {
+            ...metadata,
+            configFields: plugin.constructor.metadata?.configFields || []
+          }
+        }));
+      }
+      sendResponse({ success: true, result: withMeta });
+    } catch (err) {
+      sendResponse({ success: false, error: err.message });
+    }
+
   } else {
     sendResponse({ success: false, error: `Unknown plugin action: ${action}` });
   }

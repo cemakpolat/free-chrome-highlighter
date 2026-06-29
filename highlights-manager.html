@@ -370,6 +370,28 @@
     </div>
   </div>
 
+  <!-- Plugin Config Modal -->
+  <div class="plugin-config-overlay hidden" id="pluginConfigOverlay">
+    <div class="plugin-config-modal">
+      <div class="plugin-config-header">
+        <div class="plugin-config-title-row">
+          <span class="plugin-config-icon" id="pluginConfigIcon"></span>
+          <h3 class="plugin-config-title" id="pluginConfigTitle">Configure Plugin</h3>
+        </div>
+        <button class="plugin-config-close" id="pluginConfigClose" aria-label="Close">✕</button>
+      </div>
+      <p class="plugin-config-desc" id="pluginConfigDesc"></p>
+      <form class="plugin-config-form" id="pluginConfigForm" autocomplete="off">
+        <div id="pluginConfigFields"></div>
+        <div class="plugin-config-error hidden" id="pluginConfigError"></div>
+        <div class="plugin-config-footer">
+          <button type="button" class="plugin-config-btn secondary" id="pluginConfigCancel">Cancel</button>
+          <button type="submit" class="plugin-config-btn primary" id="pluginConfigSave">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <script src="ai-summary-service.js"></script>
   <script src="tts-service.js"></script>
   <script src="highlights-manager.js"></script>
