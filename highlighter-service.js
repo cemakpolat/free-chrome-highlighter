@@ -715,9 +715,11 @@ class HighlighterService extends IHighlighter {
     if (this.tryExactTextMatch(highlight, highlightText)) return;
     if (this.tryNormalizedTextMatch(highlight, highlightText)) return;
     if (this.tryPartialTextMatch(highlight, highlightText)) return;
-    if (this.tryFuzzyTextMatch(highlight, highlightText)) return;
 
-    console.warn('❌ Failed to restore highlight after trying all strategies:', highlightText.substring(0, 50) + '...');
+    // Strategy 4 (fuzzy matching) removed due to high false-positive rate on dynamic content
+    // Instead, mark highlight as lost so user can recover it
+    console.warn('⚠️ Highlight could not be restored:', highlightText.substring(0, 50) + '...');
+    this.markHighlightLost(highlight);
   }
 
   /**
@@ -933,74 +935,12 @@ class HighlighterService extends IHighlighter {
   }
 
   /**
-   * Strategy 4: Fuzzy matching across multiple text nodes
+   * Mark a highlight as lost (when it cannot be restored on page reload)
    */
-  tryFuzzyTextMatch(highlight, highlightText) {
-    console.log('🔍 Trying fuzzy cross-node match...');
-
-    // Collect all text content with node references
-    const textNodes = [];
-    const walker = document.createTreeWalker(
-      document.body,
-      NodeFilter.SHOW_TEXT,
-      null,
-      false
-    );
-
-    let node;
-    while (node = walker.nextNode()) {
-      if (node.parentElement?.classList.contains('universal-highlight')) {
-        continue;
-      }
-      textNodes.push({
-        node: node,
-        text: node.textContent,
-        offset: 0
-      });
-    }
-
-    // Build continuous text string with node mapping
-    let continuousText = '';
-    const nodeMap = [];
-
-    textNodes.forEach((nodeInfo, nodeIndex) => {
-      const startPos = continuousText.length;
-      continuousText += nodeInfo.text;
-
-      for (let i = 0; i < nodeInfo.text.length; i++) {
-        nodeMap.push({
-          nodeIndex: nodeIndex,
-          nodeOffset: i
-        });
-      }
-    });
-
-    // Try to find the text in continuous string
-    const normalizedTarget = highlightText.replace(/\s+/g, ' ').trim();
-    const normalizedContinuous = continuousText.replace(/\s+/g, ' ').trim();
-    const index = normalizedContinuous.indexOf(normalizedTarget);
-
-    if (index !== -1) {
-      try {
-        // Map back to original positions
-        const startMapping = nodeMap[index];
-        const endMapping = nodeMap[Math.min(index + normalizedTarget.length - 1, nodeMap.length - 1)];
-
-        if (startMapping && endMapping) {
-          const range = document.createRange();
-          range.setStart(textNodes[startMapping.nodeIndex].node, startMapping.nodeOffset);
-          range.setEnd(textNodes[endMapping.nodeIndex].node, endMapping.nodeOffset + 1);
-
-          this.applySafeHighlight(highlight, range);
-          console.log('✅ Restored using fuzzy cross-node match');
-          return true;
-        }
-      } catch (error) {
-        console.warn('Failed fuzzy match:', error);
-      }
-    }
-
-    return false;
+  markHighlightLost(highlight) {
+    highlight.isLost = true;
+    highlight.lastAttemptedRestore = new Date().toISOString();
+    this.persistHighlights([highlight], highlight.domain || 'unknown');
   }
 
   /**
@@ -1021,7 +961,6 @@ class HighlighterService extends IHighlighter {
 
     return originalIndex;
   }
-
 
   /**
    * Remove highlight from DOM

@@ -396,6 +396,18 @@ const googleDriveAuth = {
   tokenExpiry: null,
   folderName: 'Universal Web Highlighter',
   folderId: null,
+  TOKEN_REFRESH_BUFFER: 5 * 60 * 1000, // Refresh 5 min before expiry
+
+  async getValidToken() {
+    // Check if current token is still valid
+    if (this.accessToken && this.tokenExpiry && Date.now() < this.tokenExpiry) {
+      return this.accessToken;
+    }
+
+    // Token expired or doesn't exist; try to refresh
+    console.log('Background: Token expired or missing, attempting refresh...');
+    return await this.authenticate();
+  },
 
   async authenticate() {
     try {
@@ -438,14 +450,19 @@ const googleDriveAuth = {
         throw new Error('No access token received');
       }
 
+      // Google OAuth tokens typically expire in 3600 seconds (1 hour)
+      this.tokenExpiry = Date.now() + (3600 * 1000) - this.TOKEN_REFRESH_BUFFER;
+      console.log('Background: Token will expire at:', new Date(this.tokenExpiry));
+
       console.log('Background: Google Drive authentication successful, token received');
       console.log('Background: Token type:', typeof this.accessToken);
       console.log('Background: Token value:', this.accessToken);
       console.log('Background: Token preview:', (this.accessToken && typeof this.accessToken === 'string') ? this.accessToken.substring(0, 20) + '...' : 'none');
 
-      // Store token in chrome storage for persistence
+      // Store token and expiry in chrome storage for persistence
       await chrome.storage.local.set({
-        'gdrive_access_token': this.accessToken
+        'gdrive_access_token': this.accessToken,
+        'gdrive_token_expiry': this.tokenExpiry
       });
 
       // Ensure folder exists (this will also test the connection)
@@ -458,6 +475,7 @@ const googleDriveAuth = {
     } catch (error) {
       console.error('Background: Google Drive authentication error:', error);
       this.accessToken = null;
+      this.tokenExpiry = null;
       return { success: false, error: error.message };
     }
   },
@@ -531,10 +549,20 @@ const googleDriveAuth = {
   },
 
   async loadStoredToken() {
-    const result = await chrome.storage.local.get(['gdrive_access_token', 'gdrive_folder_id']);
+    const result = await chrome.storage.local.get(['gdrive_access_token', 'gdrive_token_expiry', 'gdrive_folder_id']);
     this.accessToken = result.gdrive_access_token || null;
+    this.tokenExpiry = result.gdrive_token_expiry || null;
     this.folderId = result.gdrive_folder_id || null;
-    console.log('Background: Loaded stored token:', !!this.accessToken);
+
+    // Check if stored token is still valid
+    if (this.accessToken && this.tokenExpiry && Date.now() < this.tokenExpiry) {
+      console.log('Background: Loaded valid stored token');
+    } else if (this.accessToken) {
+      console.log('Background: Stored token expired, will refresh on next use');
+      this.accessToken = null;
+    } else {
+      console.log('Background: No stored token found');
+    }
   }
 };
 
