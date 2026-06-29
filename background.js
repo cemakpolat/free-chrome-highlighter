@@ -715,6 +715,13 @@ async function handleBackgroundMessage(request, sender, sendResponse) {
         await handlePluginMessage(request, sendResponse);
         break;
 
+      case 'mcp:addServer':
+      case 'mcp:removeServer':
+      case 'mcp:listServers':
+      case 'mcp:testServer':
+        await handleMCPMessage(request, sendResponse);
+        break;
+
       default:
         sendResponse({ success: false, error: 'Unknown action' });
     }
@@ -994,6 +1001,72 @@ async function getAllHighlightsFromDrive() {
   }
 }
 
+// ─── MCP Message Handler ──────────────────────────────────────────────────────
+
+async function handleMCPMessage(request, sendResponse) {
+  const { action } = request;
+  const STORAGE_KEY = 'mcp_servers';
+
+  if (action === 'mcp:listServers') {
+    const stored = await chrome.storage.local.get(STORAGE_KEY);
+    sendResponse({ success: true, result: stored[STORAGE_KEY] || [] });
+
+  } else if (action === 'mcp:addServer') {
+    const { server } = request; // { id, name, url }
+    const stored = await chrome.storage.local.get(STORAGE_KEY);
+    const servers = stored[STORAGE_KEY] || [];
+
+    if (servers.find(s => s.id === server.id)) {
+      sendResponse({ success: false, error: 'A server with this ID already exists' });
+      return;
+    }
+
+    servers.push({ ...server, addedAt: new Date().toISOString(), status: 'unknown' });
+    await chrome.storage.local.set({ [STORAGE_KEY]: servers });
+
+    // Register as tool plugin if MCPToolPlugin is available
+    if (typeof MCPToolPlugin !== 'undefined' && _pluginRegistry) {
+      try {
+        const plugin = new MCPToolPlugin(server.id, server.url);
+        await plugin.onEnable({ serverUrl: server.url });
+        _pluginRegistry.register('tool', server.id, plugin);
+      } catch (err) {
+        console.warn('[MCP] Could not register server as plugin:', err.message);
+      }
+    }
+
+    sendResponse({ success: true, result: servers });
+
+  } else if (action === 'mcp:removeServer') {
+    const { id } = request;
+    const stored = await chrome.storage.local.get(STORAGE_KEY);
+    const servers = (stored[STORAGE_KEY] || []).filter(s => s.id !== id);
+    await chrome.storage.local.set({ [STORAGE_KEY]: servers });
+
+    if (_pluginRegistry?.has('tool', id)) {
+      _pluginRegistry.unregister('tool', id);
+    }
+
+    sendResponse({ success: true, result: servers });
+
+  } else if (action === 'mcp:testServer') {
+    const { url } = request;
+    if (typeof MCPClient === 'undefined') {
+      sendResponse({ success: false, error: 'MCP client not loaded' });
+      return;
+    }
+    try {
+      const client = new MCPClient(url, { timeout: 8000 });
+      await client.initialize();
+      const tools = await client.listTools();
+      sendResponse({ success: true, result: { connected: true, toolCount: tools.length, tools: tools.map(t => t.name) } });
+    } catch (err) {
+      sendResponse({ success: false, error: err.message });
+    }
+  }
+}
+
+
 // ─── Plugin System Bootstrap ──────────────────────────────────────────────────
 //
 // The plugin system runs in the service worker so all contexts (popup, agents,
@@ -1012,6 +1085,7 @@ async function initPluginSystem() {
       'lib/plugin-interfaces.js',
       'lib/plugin-registry.js',
       'lib/plugin-loader.js',
+      'lib/mcp-client.js',
       'lib/agent-orchestrator.js'
     );
 

@@ -11,6 +11,7 @@ document.querySelectorAll('.page-tab').forEach(tab => {
     document.getElementById(`view-${view}`)?.classList.add('active');
 
     if (view === 'agents') initAgentsView();
+    if (view === 'history') initHistoryView();
     if (view === 'plugins') initPluginsView();
   });
 });
@@ -89,7 +90,7 @@ async function loadHighlightsForAgent(agentName) {
   const all = [];
 
   for (const [key, val] of Object.entries(stored)) {
-    if (key.startsWith('highlights_') && Array.isArray(val)) {
+    if ((key.startsWith('universal_highlighter_') || key.startsWith('highlights_')) && Array.isArray(val)) {
       all.push(...val);
     }
   }
@@ -278,6 +279,7 @@ async function initPluginsView() {
   } catch {
     renderPluginError();
   }
+  initMCPSection();
 }
 
 function renderPluginCategory(category, plugins) {
@@ -505,6 +507,263 @@ document.getElementById('pluginConfigOverlay')?.addEventListener('click', e => {
   document.head.appendChild(style);
 })();
 
+// ─── History View ─────────────────────────────────────────────────────────────
+
+const HISTORY_KEYS = {
+  'research-brief': 'research_briefs',
+  'writing-output': 'writing_outputs',
+  'learning-output': 'learning_outputs'
+};
+
+const HISTORY_META = {
+  'research-brief': { icon: '🔬', label: 'Research', badge: 'badge-research' },
+  'writing-output': { icon: '✍️', label: 'Writing', badge: 'badge-writing' },
+  'learning-output': { icon: '🧠', label: 'Learning', badge: 'badge-learning' }
+};
+
+let _historyFilter = 'all';
+
+async function initHistoryView() {
+  // Bind filter tabs
+  document.querySelectorAll('.history-filter').forEach(btn => {
+    btn.onclick = () => {
+      document.querySelectorAll('.history-filter').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      _historyFilter = btn.dataset.type;
+      renderHistory();
+    };
+  });
+
+  document.getElementById('historyClearBtn')?.addEventListener('click', clearHistory);
+  renderHistory();
+}
+
+async function renderHistory() {
+  const list = document.getElementById('historyList');
+  if (!list) return;
+
+  list.innerHTML = '<div style="color:#475569;font-size:13px;padding:12px 0">Loading...</div>';
+
+  const keys = Object.values(HISTORY_KEYS);
+  const stored = await chrome.storage.local.get(keys);
+
+  let all = [];
+  for (const [type, storageKey] of Object.entries(HISTORY_KEYS)) {
+    const items = stored[storageKey] || [];
+    items.forEach(item => all.push({ ...item, _type: type }));
+  }
+
+  all.sort((a, b) => new Date(b.generatedAt) - new Date(a.generatedAt));
+
+  if (_historyFilter !== 'all') {
+    all = all.filter(item => item._type === _historyFilter || item.type === _historyFilter);
+  }
+
+  if (!all.length) {
+    list.innerHTML = `
+      <div class="history-empty">
+        <div class="history-empty-icon">🗂️</div>
+        <p>${_historyFilter === 'all' ? 'No agent outputs yet. Run an agent in the AI Agents tab.' : 'No results for this filter.'}</p>
+      </div>`;
+    return;
+  }
+
+  list.innerHTML = all.map((item, idx) => {
+    const meta = HISTORY_META[item._type] || HISTORY_META[item.type] || { icon: '📄', label: item._type, badge: '' };
+    const date = item.generatedAt ? new Date(item.generatedAt).toLocaleDateString('en', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+    const title = item.query || item.title || item.format || item._type;
+    const content = extractHistoryContent(item);
+
+    return `
+      <div class="history-card" data-idx="${idx}">
+        <div class="history-card-header" data-toggle="${idx}">
+          <div class="history-card-icon">${meta.icon}</div>
+          <div class="history-card-meta">
+            <div class="history-card-title">${escHtml(title)}</div>
+            <div class="history-card-sub">
+              <span class="history-type-badge ${meta.badge}">${meta.label}</span>
+              &nbsp;${escHtml(date)} · ${item.highlightCount || 0} highlights
+            </div>
+          </div>
+          <div class="history-card-actions">
+            <button class="history-action-btn" data-action="copy" data-content="${escAttr(content)}">Copy</button>
+            <button class="history-action-btn" data-action="download" data-content="${escAttr(content)}" data-filename="${escAttr(title + '.md')}">↓ MD</button>
+            <button class="history-action-btn danger" data-action="delete" data-id="${escAttr(item.id)}" data-storage="${escAttr(HISTORY_KEYS[item._type] || HISTORY_KEYS[item.type])}">✕</button>
+          </div>
+        </div>
+        <div class="history-card-body" id="history-body-${idx}">
+          <div class="history-card-content">${escHtml(content)}</div>
+        </div>
+      </div>`;
+  }).join('');
+
+  // Toggle expand
+  list.querySelectorAll('[data-toggle]').forEach(el => {
+    el.addEventListener('click', () => {
+      const body = document.getElementById(`history-body-${el.dataset.toggle}`);
+      body?.classList.toggle('open');
+    });
+  });
+
+  // Action buttons
+  list.querySelectorAll('[data-action]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      if (btn.dataset.action === 'copy') {
+        navigator.clipboard.writeText(btn.dataset.content || '').then(() => {
+          const orig = btn.textContent; btn.textContent = 'Copied!';
+          setTimeout(() => { btn.textContent = orig; }, 1400);
+        });
+      } else if (btn.dataset.action === 'download') {
+        downloadMarkdown(btn.dataset.content, btn.dataset.filename || 'output.md');
+      } else if (btn.dataset.action === 'delete') {
+        deleteHistoryItem(btn.dataset.id, btn.dataset.storage);
+      }
+    });
+  });
+}
+
+function extractHistoryContent(item) {
+  if (item.brief) return item.brief;
+  if (item.summary) return item.summary;
+  if (typeof item.content === 'string') return item.content;
+  if (item.content?.cards) {
+    return item.content.cards.map(c => `Q: ${c.front}\nA: ${c.back}`).join('\n\n');
+  }
+  if (item.content?.questions) {
+    return item.content.questions.map(q => `Q${q.id}: ${q.question}\nA: ${q.correctAnswer}`).join('\n\n');
+  }
+  if (item.content?.sessions) {
+    return item.content.sessions.map(s => `Session ${s.session}: ${s.focus}\n${s.items.join('\n')}`).join('\n\n');
+  }
+  return JSON.stringify(item.content || item, null, 2);
+}
+
+async function deleteHistoryItem(id, storageKey) {
+  if (!id || !storageKey) return;
+  const stored = await chrome.storage.local.get(storageKey);
+  const items = (stored[storageKey] || []).filter(i => i.id !== id);
+  await chrome.storage.local.set({ [storageKey]: items });
+  renderHistory();
+}
+
+async function clearHistory() {
+  const keys = Object.values(HISTORY_KEYS);
+  const clear = {};
+  keys.forEach(k => { clear[k] = []; });
+  await chrome.storage.local.set(clear);
+  renderHistory();
+}
+
+function downloadMarkdown(content, filename) {
+  const blob = new Blob([content], { type: 'text/markdown' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// ─── MCP Servers UI ───────────────────────────────────────────────────────────
+
+async function initMCPSection() {
+  document.getElementById('mcpAddBtn')?.addEventListener('click', addMCPServer);
+  document.getElementById('mcpServerUrl')?.addEventListener('keydown', e => {
+    if (e.key === 'Enter') addMCPServer();
+  });
+  loadMCPServers();
+}
+
+async function loadMCPServers() {
+  const resp = await chrome.runtime.sendMessage({ action: 'mcp:listServers' }).catch(() => null);
+  renderMCPServers(resp?.result || []);
+}
+
+function renderMCPServers(servers) {
+  const list = document.getElementById('mcp-server-list');
+  if (!list) return;
+
+  if (!servers.length) {
+    list.innerHTML = '<div class="plugin-loading">No MCP servers connected.</div>';
+    return;
+  }
+
+  list.innerHTML = servers.map(s => `
+    <div class="mcp-server-row ${s.status || ''}" data-id="${escAttr(s.id)}">
+      <div class="mcp-server-dot ${s.status || ''}"></div>
+      <div class="mcp-server-info">
+        <div class="mcp-server-name">${escHtml(s.name || s.id)}</div>
+        <div class="mcp-server-url">${escHtml(s.url)}</div>
+        ${s.tools?.length ? `<div class="mcp-server-tools">Tools: ${escHtml(s.tools.slice(0,5).join(', '))}${s.tools.length > 5 ? ' +more' : ''}</div>` : ''}
+      </div>
+      <button class="history-action-btn" data-test="${escAttr(s.id)}" data-url="${escAttr(s.url)}">Test</button>
+      <button class="mcp-remove-btn" data-remove="${escAttr(s.id)}" title="Remove">✕</button>
+    </div>`).join('');
+
+  list.querySelectorAll('[data-test]').forEach(btn => {
+    btn.addEventListener('click', () => testMCPServer(btn.dataset.test, btn.dataset.url));
+  });
+  list.querySelectorAll('[data-remove]').forEach(btn => {
+    btn.addEventListener('click', () => removeMCPServer(btn.dataset.remove));
+  });
+}
+
+async function addMCPServer() {
+  const urlEl = document.getElementById('mcpServerUrl');
+  const nameEl = document.getElementById('mcpServerName');
+  const btn = document.getElementById('mcpAddBtn');
+
+  const url = urlEl?.value?.trim();
+  const name = nameEl?.value?.trim() || url;
+
+  if (!url) { urlEl?.focus(); return; }
+
+  btn.disabled = true;
+  btn.textContent = 'Testing...';
+
+  const testResp = await chrome.runtime.sendMessage({ action: 'mcp:testServer', url }).catch(() => null);
+
+  const id = `mcp_${Date.now()}`;
+  const server = {
+    id, name, url,
+    status: testResp?.success ? 'connected' : 'error',
+    tools: testResp?.result?.tools || []
+  };
+
+  const addResp = await chrome.runtime.sendMessage({ action: 'mcp:addServer', server }).catch(() => null);
+
+  if (addResp?.success) {
+    urlEl.value = '';
+    nameEl.value = '';
+    renderMCPServers(addResp.result);
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Add';
+}
+
+async function testMCPServer(id, url) {
+  const row = document.querySelector(`[data-id="${id}"]`);
+  const dot = row?.querySelector('.mcp-server-dot');
+  if (dot) { dot.className = 'mcp-server-dot testing'; }
+
+  const resp = await chrome.runtime.sendMessage({ action: 'mcp:testServer', url }).catch(() => null);
+
+  if (dot) {
+    dot.className = `mcp-server-dot ${resp?.success ? 'connected' : 'error'}`;
+  }
+  const toolsEl = row?.querySelector('.mcp-server-tools');
+  if (toolsEl && resp?.result?.tools) {
+    toolsEl.textContent = `Tools: ${resp.result.tools.slice(0,5).join(', ')}${resp.result.tools.length > 5 ? ' +more' : ''}`;
+  }
+}
+
+async function removeMCPServer(id) {
+  const resp = await chrome.runtime.sendMessage({ action: 'mcp:removeServer', id }).catch(() => null);
+  renderMCPServers(resp?.result || []);
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function escHtml(str) {
@@ -514,3 +773,46 @@ function escHtml(str) {
 function escAttr(str) {
   return String(str || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
+
+// ─── Onboarding ───────────────────────────────────────────────────────────────
+
+(async function initOnboarding() {
+  const stored = await chrome.storage.local.get('onboarding_complete');
+  if (stored.onboarding_complete) return;
+
+  const overlay = document.getElementById('onboardingOverlay');
+  if (!overlay) return;
+  overlay.classList.remove('hidden');
+
+  let step = 1;
+  const totalSteps = 4;
+
+  function goto(n) {
+    step = Math.max(1, Math.min(totalSteps, n));
+
+    document.querySelectorAll('.onboarding-step').forEach(el => el.classList.remove('active'));
+    document.querySelector(`.onboarding-step[data-step="${step}"]`)?.classList.add('active');
+
+    document.querySelectorAll('.onboarding-dot').forEach((dot, i) => {
+      dot.classList.toggle('active', i + 1 === step);
+    });
+
+    const backBtn = document.getElementById('onboardingBack');
+    const nextBtn = document.getElementById('onboardingNext');
+    if (backBtn) backBtn.style.display = step > 1 ? '' : 'none';
+    if (nextBtn) nextBtn.textContent = step === totalSteps ? 'Get Started' : 'Next →';
+  }
+
+  document.getElementById('onboardingNext')?.addEventListener('click', () => {
+    if (step === totalSteps) {
+      overlay.classList.add('hidden');
+      chrome.storage.local.set({ onboarding_complete: true });
+    } else {
+      goto(step + 1);
+    }
+  });
+
+  document.getElementById('onboardingBack')?.addEventListener('click', () => goto(step - 1));
+
+  goto(1);
+})();

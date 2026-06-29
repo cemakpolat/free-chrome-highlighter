@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Universal Web Highlighter",
-  "version": "1.0.0",
-  "description": "Free web highlighter with Google Drive sync - highlight, save, and access your research from anywhere",
+  "version": "2.0.0",
+  "description": "Free web highlighter with AI agents, plugin-based integrations, and MCP support — the open alternative to Web Highlights",
   
   "permissions": [
     "storage",
@@ -76,7 +76,9 @@
         "lib/plugin-interfaces.js",
         "lib/plugin-registry.js",
         "lib/plugin-loader.js",
-        "lib/agent-orchestrator.js"
+        "lib/mcp-client.js",
+        "lib/agent-orchestrator.js",
+        "highlights-manager-agents.js"
       ],
       "matches": ["<all_urls>"]
     }

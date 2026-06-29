@@ -16,6 +16,7 @@
   <nav class="page-tabs" role="tablist">
     <button class="page-tab active" data-view="highlights" role="tab">Highlights</button>
     <button class="page-tab" data-view="agents" role="tab">AI Agents</button>
+    <button class="page-tab" data-view="history" role="tab">History</button>
     <button class="page-tab" data-view="plugins" role="tab">Plugins</button>
   </nav>
 
@@ -247,6 +248,27 @@
     </div>
   </div><!-- /view-agents -->
 
+  <!-- ── History View ──────────────────────────────────────────── -->
+  <div id="view-history" class="page-view history-view">
+    <div class="history-layout">
+      <div class="history-toolbar">
+        <div class="history-filter-tabs">
+          <button class="history-filter active" data-type="all">All</button>
+          <button class="history-filter" data-type="research-brief">Research</button>
+          <button class="history-filter" data-type="writing-output">Writing</button>
+          <button class="history-filter" data-type="learning-output">Learning</button>
+        </div>
+        <button class="history-clear-btn" id="historyClearBtn">Clear All</button>
+      </div>
+      <div class="history-list" id="historyList">
+        <div class="history-empty">
+          <div class="history-empty-icon">🗂️</div>
+          <p>No agent outputs yet. Run an agent in the AI Agents tab to see results here.</p>
+        </div>
+      </div>
+    </div>
+  </div><!-- /view-history -->
+
   <!-- ── Plugins View ───────────────────────────────────────────── -->
   <div id="view-plugins" class="page-view plugins-view">
     <div class="plugins-layout">
@@ -272,6 +294,19 @@
         <p class="plugins-section-desc">Extra actions — share to Slack, search papers, copy to clipboard.</p>
         <div class="plugin-list" id="plugin-list-tool">
           <div class="plugin-loading">Loading...</div>
+        </div>
+      </div>
+
+      <div class="plugins-section">
+        <h3 class="plugins-section-title">MCP Servers</h3>
+        <p class="plugins-section-desc">Connect to any MCP-compatible tool server. Agents can call tools exposed by these servers.</p>
+        <div class="mcp-add-row">
+          <input class="agent-input" id="mcpServerUrl" type="text" placeholder="http://localhost:3000" style="flex:1">
+          <input class="agent-input" id="mcpServerName" type="text" placeholder="Name" style="width:130px">
+          <button class="mcp-add-btn" id="mcpAddBtn">Add</button>
+        </div>
+        <div class="plugin-list" id="mcp-server-list">
+          <div class="plugin-loading">No MCP servers connected.</div>
         </div>
       </div>
 
@@ -366,6 +401,71 @@
       <div class="delete-modal-footer">
         <button id="deleteModalCancel" class="delete-modal-btn delete-modal-btn-cancel">Cancel</button>
         <button id="deleteModalConfirm" class="delete-modal-btn delete-modal-btn-delete">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- First-run Onboarding Overlay -->
+  <div class="onboarding-overlay hidden" id="onboardingOverlay">
+    <div class="onboarding-modal">
+      <div class="onboarding-steps" id="onboardingSteps">
+
+        <!-- Step 1 -->
+        <div class="onboarding-step active" data-step="1">
+          <div class="onboarding-graphic">✨</div>
+          <h2 class="onboarding-title">Welcome to Universal Web Highlighter</h2>
+          <p class="onboarding-body">Your free, open alternative to Web Highlights — with AI agents, plugin-based integrations, and no vendor lock-in.</p>
+          <div class="onboarding-features">
+            <div class="onboarding-feature"><span>🎨</span> Highlight any text on any page</div>
+            <div class="onboarding-feature"><span>☁️</span> Sync to Google Drive, Notion, or Obsidian</div>
+            <div class="onboarding-feature"><span>🤖</span> AI agents for research, writing & learning</div>
+            <div class="onboarding-feature"><span>🔌</span> Plugin system — your data, your tools</div>
+          </div>
+        </div>
+
+        <!-- Step 2 -->
+        <div class="onboarding-step" data-step="2">
+          <div class="onboarding-graphic">🎨</div>
+          <h2 class="onboarding-title">Start Highlighting</h2>
+          <p class="onboarding-body">Select any text on a webpage and a toolbar appears. Choose a colour, add a note, and your highlight is saved instantly.</p>
+          <div class="onboarding-tip">
+            <strong>Tip:</strong> Highlights are typed automatically — definitions get amber, evidence gets blue, questions get purple.
+          </div>
+        </div>
+
+        <!-- Step 3 -->
+        <div class="onboarding-step" data-step="3">
+          <div class="onboarding-graphic">🤖</div>
+          <h2 class="onboarding-title">Run AI Agents</h2>
+          <p class="onboarding-body">After highlighting, open the <strong>AI Agents</strong> tab. Choose Research, Writing, or Learning — the agent reads your highlights and produces a brief, outline, or flashcards.</p>
+          <div class="onboarding-tip">
+            Works offline with the built-in extractive engine. Connect Ollama or Claude for richer results.
+          </div>
+        </div>
+
+        <!-- Step 4 -->
+        <div class="onboarding-step" data-step="4">
+          <div class="onboarding-graphic">🔌</div>
+          <h2 class="onboarding-title">Choose Your Integrations</h2>
+          <p class="onboarding-body">Open the <strong>Plugins</strong> tab to switch storage providers, AI engines, and connect MCP tool servers — all without leaving the extension.</p>
+          <div class="onboarding-tip">
+            Nothing is locked in. Swap providers any time. Your highlights stay in your browser unless you choose to sync them.
+          </div>
+        </div>
+
+      </div>
+
+      <div class="onboarding-footer">
+        <div class="onboarding-dots" id="onboardingDots">
+          <span class="onboarding-dot active"></span>
+          <span class="onboarding-dot"></span>
+          <span class="onboarding-dot"></span>
+          <span class="onboarding-dot"></span>
+        </div>
+        <div class="onboarding-nav">
+          <button class="onboarding-btn secondary" id="onboardingBack" style="display:none">Back</button>
+          <button class="onboarding-btn primary" id="onboardingNext">Next →</button>
+        </div>
       </div>
     </div>
   </div>
